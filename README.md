@@ -18,7 +18,7 @@
 * **오호출 방지 쿨다운**: 호출 직후 일정 시간 동안 연속 중복 호출을 차단하는 쿨다운 타이머 관리
   
 # 시스템 아키텍처
-[<img width="1280" alt="OpticCall 시스템 아키텍처" src="docs/architecture.webp" />](https://github.com/KYU-SW/KY_SW_PSY/issues/2)
+<img width="996" height="712" alt="Image" src="https://github.com/user-attachments/assets/2082d37a-7b7a-485e-b734-260a4220a776" />
 
 | 계층 | 구성 | 역할 |
 | --- | --- | --- |
@@ -28,7 +28,7 @@
 | **Output Layer** | pyttsx3 음성 안내 · Telegram Bot API 원격 알림 | 환자 안내 및 의료진·보호자 알림 |
 
 # Use Case Diagram
-[https://github.com/KYU-SW/KY_SW_PSY/issues/2](https://github.com/KYU-SW/KY_SW_PSY/issues/1)
+<img width="1408" height="958" alt="Image" src="https://github.com/user-attachments/assets/73ea2963-564f-4f09-9ce5-d76b900fde04" />
 
 # 기술 스택 및 개발 환경
 * **개발 언어:** Python
