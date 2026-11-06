@@ -1,0 +1,5 @@
+opencv-contrib-python
+mediapipe
+pywin32
+requests
+python-dotenv

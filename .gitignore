@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.env
+*.pyc
+
+# 개인 측정 데이터 (눈·얼굴 측정값) - 결과표(calibration_results.csv)만 공유한다
+profiles/samples_*.json
+profiles/calibration_*.json
+!profiles/calibration_results.csv
+profiles/users.json
