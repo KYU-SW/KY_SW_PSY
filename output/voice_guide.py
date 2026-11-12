@@ -28,6 +28,7 @@ def build_phrases(dwell=None):
         "CALL": "간호사를 호출했습니다. 잠시만 기다려 주세요.",
         "CANCEL": "호출을 취소했습니다.",
         "TIMEOUT": "응답이 없어 호출하지 않았습니다.",
+        "NOTIFY_FAIL": "알림을 보내지 못했습니다. 다시 호출해 주세요.",
     }
 
 
@@ -43,8 +44,12 @@ class VoiceGuide:
     def on_event(self, event):
         if event == "CANCEL":
             self.speaker.interrupt("ASK")      # 질문 중에 눈을 감아 취소했으면 질문을 끊는다
-        if event in self.phrases and event != "START":
+        if event in ("ASK", "CALL", "CANCEL", "TIMEOUT"):
             self.speaker.say_async(self.phrases[event], event)
+
+    def notify_failed(self):
+        """호출 알림이 아무에게도 가지 않았을 때. 환자가 호출된 줄 알고 기다리지 않게 알린다."""
+        self.speaker.say_async(self.phrases["NOTIFY_FAIL"], "NOTIFY_FAIL")
 
     def sync(self, controller):
         """다 읽은 음성을 컨트롤러에 알린다. 매 프레임 부른다."""

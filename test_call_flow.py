@@ -1,7 +1,8 @@
-# 5~6단계 호출 흐름 실시간 확인 (실제 음성 안내 포함, 알림은 아직 없음)
+# 5~7단계 호출 흐름 실시간 확인 (실제 음성 안내 + Telegram 알림)
 #   python test_call_flow.py                 -> 공통 기준 + 실제 음성
 #   python test_call_flow.py --user friend01 -> 그 사람의 보정값·응시 시간
 #   python test_call_flow.py --no-voice      -> 음성 없이 음성 길이만 가정
+#   python test_call_flow.py --no-notify     -> Telegram 알림 보내지 않기
 # 종료: 영상 창에서 q 또는 ESC
 import argparse
 import time
@@ -11,6 +12,7 @@ import cv2
 import config
 from decision.call_controller import ASKING, COOLDOWN, IDLE, WAITING, CallController
 from input.camera_stream import CameraStream
+from output.notifier import Notifier
 from output.tts import Speaker
 from output.voice_guide import VoiceGuide
 from profiles.profile_manager import load_profile
@@ -37,6 +39,7 @@ def main():
     parser = argparse.ArgumentParser(description="OpticCall 호출 흐름 확인")
     parser.add_argument("--user", help="보정값·응시 시간을 불러올 사람 이름")
     parser.add_argument("--log", help="프레임마다 눈 상태를 이 CSV 파일에 기록 (원인 분석용)")
+    parser.add_argument("--no-notify", action="store_true", help="Telegram 알림 보내지 않기")
     parser.add_argument("--no-voice", action="store_true", help="음성 없이 아래 길이만 가정")
     parser.add_argument("--question-sec", type=float, default=7.8, help="--no-voice일 때 질문 음성 길이 가정")
     parser.add_argument("--announce-sec", type=float, default=4.0, help="--no-voice일 때 결과 안내 길이 가정")
@@ -55,6 +58,9 @@ def main():
     guide = None if args.no_voice else VoiceGuide(Speaker(), dwell)
     if guide:
         guide.start()            # 시작 안내 = 소리 확인
+    notifier = None if args.no_notify else Notifier()
+    if notifier and not notifier.configured():
+        print("[알림] .env에 Telegram 설정이 없어 호출 알림이 실패로 처리됩니다. (--no-notify로 끌 수 있음)")
 
     log = []                  # 화면에 보일 최근 이벤트
     csv = None
@@ -84,7 +90,13 @@ def main():
                 if announce_end and now >= announce_end:
                     controller.announcement_finished(now)
                     announce_end = None
+            if notifier:
+                for result in notifier.poll_results():
+                    if not result.ok and guide:
+                        guide.notify_failed()
             for event in controller.update(eye, now):
+                if event == "CALL" and notifier:
+                    notifier.notify_call()
                 if guide:
                     guide.on_event(event)
                 elif event == "ASK":
