@@ -4,7 +4,7 @@
 # DroidCam Wi-Fi 연결: 스마트폰 앱에 표시된 IP 주소를 입력
 #   예) CAMERA_SOURCE = "http://192.168.0.12:4747/video"
 # DroidCam Client(가상 웹캠) 또는 USB 웹캠: 장치 번호(0, 1, 2 ...)를 입력
-CAMERA_SOURCE = "http://10.22.10.134:4747/video"
+CAMERA_SOURCE = "http://10.22.14.83:4747/video"
 
 FRAME_WIDTH = 640           # 분석용 프레임 가로 크기 (px)
 RECONNECT_DELAY_SEC = 2.0   # 영상이 끊겼을 때 재연결 대기 시간
@@ -51,6 +51,10 @@ TOLERANCE_GRID = {
 # 순간적인 오판정은 5초 연속 응시 조건에서 걸러지므로, 응시가 끊기지 않는 쪽을 우선한다.
 MAX_AWAY_FALSE_GAZE = 10.0
 SMOOTHING = 0.5
+
+# ── 음성 안내 ────────────────────────────────────────
+# 말하기 속도 (-10 느림 ~ 10 빠름). 1이면 질문이 8.3초 -> 7.7초, 알아듣기에도 무리 없음
+VOICE_RATE = 1
 
 # ── 호출 판정 (Decision Layer) ──────────────────────────
 # 사용자별 응시 시간 기본값 (profiles/users.json에서 사람마다 바꿀 수 있음)

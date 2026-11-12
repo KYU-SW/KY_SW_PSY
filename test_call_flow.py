@@ -37,7 +37,7 @@ def main():
     parser = argparse.ArgumentParser(description="OpticCall 호출 흐름 확인")
     parser.add_argument("--user", help="보정값·응시 시간을 불러올 사람 이름")
     parser.add_argument("--no-voice", action="store_true", help="음성 없이 아래 길이만 가정")
-    parser.add_argument("--question-sec", type=float, default=8.8, help="--no-voice일 때 질문 음성 길이 가정")
+    parser.add_argument("--question-sec", type=float, default=7.8, help="--no-voice일 때 질문 음성 길이 가정")
     parser.add_argument("--announce-sec", type=float, default=4.0, help="--no-voice일 때 결과 안내 길이 가정")
     args = parser.parse_args()
 

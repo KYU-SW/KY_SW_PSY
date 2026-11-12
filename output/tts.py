@@ -13,6 +13,8 @@ import time
 import pythoncom
 import win32com.client
 
+import config
+
 
 def _make_voice(rate):
     voice = win32com.client.Dispatch("SAPI.SpVoice")
@@ -24,8 +26,8 @@ def _make_voice(rate):
 
 
 class Speaker:
-    def __init__(self, rate=0):
-        self.rate = rate
+    def __init__(self, rate=None):
+        self.rate = config.VOICE_RATE if rate is None else rate
         self._voice = None                # say()용 (부른 스레드에서 만든다)
         self._todo = queue.Queue()        # say_async로 들어온 (text, tag)
         self._done = queue.Queue()        # 다 읽은 (tag, 끝난 시각)

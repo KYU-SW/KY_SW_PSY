@@ -13,12 +13,12 @@ from profiles.profile_manager import load_profile
 def main():
     parser = argparse.ArgumentParser(description="OpticCall 음성 안내 확인")
     parser.add_argument("--user", help="응시 시간을 불러올 사람 이름")
-    parser.add_argument("--rate", type=int, default=0, help="말하기 속도 (-10 ~ 10)")
+    parser.add_argument("--rate", type=int, default=None, help="말하기 속도 (-10 ~ 10)")
     args = parser.parse_args()
 
     speaker = Speaker(rate=args.rate)
     phrases = build_phrases(load_profile(args.user))
-    print(f"말하기 속도: {args.rate}\n")
+    print(f"말하기 속도: {speaker.rate}\n")
     for tag, text in phrases.items():
         start = time.time()
         speaker.say_async(text, tag)

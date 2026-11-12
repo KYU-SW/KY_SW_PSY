@@ -17,10 +17,11 @@ def build_phrases(dwell=None):
     d = dict(config.DWELL_DEFAULTS, **(dwell or {}))
     confirm = seconds_text(d["confirm_gaze_sec"])
     cancel = seconds_text(d["cancel_close_sec"])
+    # 질문이 길수록 2차 응시를 늦게 시작하므로 짧게. 몇 초 봐야 하는지는 꼭 말한다.
     if confirm == cancel:
-        ask = f"호출하시겠습니까? 호출은 {confirm} 동안 카메라를 보시고, 취소는 눈을 감아 주세요."
+        ask = f"호출할까요? 카메라를 {confirm} 보시면 호출, 눈을 감으시면 취소합니다."
     else:
-        ask = f"호출하시겠습니까? 호출은 {confirm} 동안 카메라를 보시고, 취소는 {cancel} 동안 눈을 감아 주세요."
+        ask = f"호출할까요? 카메라를 {confirm} 보시면 호출, 눈을 {cancel} 감으시면 취소합니다."
     return {
         "START": "옵틱콜을 시작합니다.",
         "ASK": ask,
