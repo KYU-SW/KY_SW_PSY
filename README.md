@@ -69,6 +69,7 @@ OpticCall/
 │
 ├── output/
 │   ├── tts.py               # Windows SAPI 음성 안내
+│   ├── voice_guide.py       # 호출 단계별 안내 문구 · 음성 종료 시점 전달
 │   └── notifier.py          # Telegram Bot 알림 전송
 │
 ├── docs/

@@ -1,6 +1,7 @@
-# 5단계 호출 흐름 실시간 확인 (음성·알림 없이 화면에 상태만 표시)
-#   python test_call_flow.py --user friend01
-#   python test_call_flow.py --user friend01 --question-sec 5   -> 질문 음성 길이를 5초로 가정
+# 5~6단계 호출 흐름 실시간 확인 (실제 음성 안내 포함, 알림은 아직 없음)
+#   python test_call_flow.py                 -> 공통 기준 + 실제 음성
+#   python test_call_flow.py --user friend01 -> 그 사람의 보정값·응시 시간
+#   python test_call_flow.py --no-voice      -> 음성 없이 음성 길이만 가정
 # 종료: 영상 창에서 q 또는 ESC
 import argparse
 import time
@@ -10,6 +11,8 @@ import cv2
 import config
 from decision.call_controller import ASKING, COOLDOWN, IDLE, WAITING, CallController
 from input.camera_stream import CameraStream
+from output.tts import Speaker
+from output.voice_guide import VoiceGuide
 from profiles.profile_manager import load_profile
 from vision.face_landmarker import FaceLandmarkDetector
 from vision.features import FeatureExtractor, load_calibration
@@ -33,8 +36,9 @@ def draw_bar(frame, x, y, w, h, ratio, color):
 def main():
     parser = argparse.ArgumentParser(description="OpticCall 호출 흐름 확인")
     parser.add_argument("--user", help="보정값·응시 시간을 불러올 사람 이름")
-    parser.add_argument("--question-sec", type=float, default=4.0, help="질문 음성 길이 가정 (6단계 전까지)")
-    parser.add_argument("--announce-sec", type=float, default=3.5, help="결과 안내 음성 길이 가정 (6단계 전까지)")
+    parser.add_argument("--no-voice", action="store_true", help="음성 없이 아래 길이만 가정")
+    parser.add_argument("--question-sec", type=float, default=8.8, help="--no-voice일 때 질문 음성 길이 가정")
+    parser.add_argument("--announce-sec", type=float, default=4.0, help="--no-voice일 때 결과 안내 길이 가정")
     args = parser.parse_args()
 
     dwell = load_profile(args.user)
@@ -47,6 +51,9 @@ def main():
     detector = FaceLandmarkDetector()
     extractor = FeatureExtractor(load_calibration(args.user))
     controller = CallController(dwell)
+    guide = None if args.no_voice else VoiceGuide(Speaker(), dwell)
+    if guide:
+        guide.start()            # 시작 안내 = 소리 확인
 
     log = []                  # 화면에 보일 최근 이벤트
     question_end = None       # 질문 음성이 끝나는 시각 (6단계에서 실제 음성으로 바뀜)
@@ -63,14 +70,19 @@ def main():
             now = time.time()
 
             eye = extractor.update(detector.detect(frame))
-            if question_end and now >= question_end:
-                controller.question_finished(now)
-                question_end = None
-            if announce_end and now >= announce_end:
-                controller.announcement_finished(now)
-                announce_end = None
+            if guide:
+                guide.sync(controller)          # 실제 음성이 끝난 시각을 전달
+            else:
+                if question_end and now >= question_end:
+                    controller.question_finished(now)
+                    question_end = None
+                if announce_end and now >= announce_end:
+                    controller.announcement_finished(now)
+                    announce_end = None
             for event in controller.update(eye, now):
-                if event == "ASK":
+                if guide:
+                    guide.on_event(event)
+                elif event == "ASK":
                     question_end = now + args.question_sec
                 elif event in ("CALL", "CANCEL", "TIMEOUT"):
                     announce_end = now + args.announce_sec
