@@ -5,6 +5,12 @@
 #                                                               └─(응답 없음)─────▶ TIMEOUT ─┘
 #   COOLDOWN: 결과 안내 음성이 끝나고, 환자가 카메라에서 시선을 한 번 떼면 다시 IDLE
 #
+# 질문 음성이 나오는 동안(ASKING):
+#   - 응시는 세지 않는다. 질문을 듣느라 계속 카메라를 보고 있던 사람이 저절로 호출되지 않게.
+#   - 눈 감기는 센다. "눈을 감으시면 취소"를 듣자마자 감는 게 자연스럽고,
+#     3.5초 눈 감기는 일부러 해야 하는 행동이며, 잘못 판정돼도 취소 쪽이 안전하다.
+#     질문 중에 다 채우면 바로 CANCEL(질문을 끊는다), 질문이 끝난 뒤까지 감고 있으면 합쳐서 센다.
+#
 # 음성·알림은 여기서 직접 하지 않고 이벤트(ASK, CALL, CANCEL, TIMEOUT, READY)만 돌려준다.
 # 바깥에서 질문 음성이 끝나면 question_finished(), 결과 안내가 끝나면 announcement_finished()를 불러 준다.
 import config
@@ -55,9 +61,9 @@ class CallController:
         return max(d["confirm_gaze_sec"], d["cancel_close_sec"]) + self.cfg.RESPONSE_EXTRA_SEC
 
     def question_finished(self, now):
-        """질문 음성이 끝났을 때 부른다. 이때부터 2차 응시·눈 감기 시간을 잰다."""
+        """질문 음성이 끝났을 때 부른다. 이때부터 2차 응시 시간을 잰다. (눈 감기는 이어서 센다)"""
         if self.state == ASKING:
-            self._reset_timers()
+            self.gaze.reset()
             self.state = WAITING
             self.deadline = now + self.response_timeout
 
@@ -76,6 +82,10 @@ class CallController:
                 self.state = ASKING
                 self._reset_timers()
                 return ["ASK"]
+
+        elif self.state == ASKING:
+            if self.closed.elapsed() >= d["cancel_close_sec"]:
+                return self._cool_down("CANCEL")
 
         elif self.state == WAITING:
             if self.gaze.elapsed() >= d["confirm_gaze_sec"]:
@@ -104,6 +114,8 @@ class CallController:
             return ("gaze to CALL", min(1.0, g)) if g >= c else ("close to cancel", min(1.0, c))
         if self.state == COOLDOWN:
             return ("look away to reset" if self._announced else "announcing..."), 0.0
+        if self.closed.holding():          # ASKING 중 눈 감기
+            return "close to cancel", min(1.0, self.closed.elapsed() / d["cancel_close_sec"])
         return "asking...", 0.0
 
     def _update_timers(self, eye, now):

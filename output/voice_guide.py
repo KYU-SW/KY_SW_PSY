@@ -41,6 +41,8 @@ class VoiceGuide:
         self.speaker.say_async(self.phrases["START"], "START")
 
     def on_event(self, event):
+        if event == "CANCEL":
+            self.speaker.interrupt("ASK")      # 질문 중에 눈을 감아 취소했으면 질문을 끊는다
         if event in self.phrases and event != "START":
             self.speaker.say_async(self.phrases[event], event)
 

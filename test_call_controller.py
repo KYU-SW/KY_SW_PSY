@@ -65,6 +65,23 @@ def main():
     s = Sim().run(GAZE, 3.6).answer_ready().run(CLOSED, 3.6)
     results.append(check("질문 후 3.5초 눈 감으면 취소", s.names() == ["ASK", "CANCEL"], s.events))
 
+    s = Sim().run(GAZE, 3.6).run(CLOSED, 3.6)
+    results.append(check("질문 음성 중에 3.5초 눈 감으면 바로 취소", s.names() == ["ASK", "CANCEL"]
+                         and s.c.state == COOLDOWN, s.events))
+
+    s = Sim().run(GAZE, 3.6).run(CLOSED, 2).answer_ready().run(CLOSED, 1.6)
+    results.append(check("질문 중 2초 + 질문 끝난 뒤 1.6초 감으면 합쳐서 취소",
+                         s.names() == ["ASK", "CANCEL"], s.events))
+
+    s = Sim().run(GAZE, 3.6).run(CLOSED, 2).run(AWAY, 1).answer_ready().run(CLOSED, 2)
+    results.append(check("질문 중 감았다가 1초 이상 뜨면 처음부터 다시 셈", s.names() == ["ASK"], s.events))
+
+    s = Sim().run(GAZE, 3.6)
+    for _ in range(4):                      # 질문 중 깜빡임만
+        s.run(GAZE, 1).run(CLOSED, 0.2)
+    s.answer_ready()
+    results.append(check("질문 중 깜빡임으로는 취소 안 됨", s.names() == ["ASK"] and s.c.state == WAITING, s.events))
+
     s = Sim().run(GAZE, 3.6).answer_ready().run(AWAY, 11)
     results.append(check("질문 후 응답이 없으면 시간 초과 (10.5초)", s.names() == ["ASK", "TIMEOUT"], s.events))
 

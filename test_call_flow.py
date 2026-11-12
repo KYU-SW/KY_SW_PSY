@@ -36,6 +36,7 @@ def draw_bar(frame, x, y, w, h, ratio, color):
 def main():
     parser = argparse.ArgumentParser(description="OpticCall 호출 흐름 확인")
     parser.add_argument("--user", help="보정값·응시 시간을 불러올 사람 이름")
+    parser.add_argument("--log", help="프레임마다 눈 상태를 이 CSV 파일에 기록 (원인 분석용)")
     parser.add_argument("--no-voice", action="store_true", help="음성 없이 아래 길이만 가정")
     parser.add_argument("--question-sec", type=float, default=7.8, help="--no-voice일 때 질문 음성 길이 가정")
     parser.add_argument("--announce-sec", type=float, default=4.0, help="--no-voice일 때 결과 안내 길이 가정")
@@ -56,6 +57,10 @@ def main():
         guide.start()            # 시작 안내 = 소리 확인
 
     log = []                  # 화면에 보일 최근 이벤트
+    csv = None
+    if args.log:
+        csv = open(args.log, "w", encoding="utf-8")
+        csv.write("t,state,face,gazing,closed,ear,blink,iris_h,iris_v,yaw,pitch\n")
     question_end = None       # 질문 음성이 끝나는 시각 (6단계에서 실제 음성으로 바뀜)
     announce_end = None       # 결과 안내 음성이 끝나는 시각
     start = time.time()
@@ -90,6 +95,14 @@ def main():
                 log.append(f"{stamp:6.1f}s  {EVENT_TEXT[event]}")
                 print(f"[{stamp:6.1f}s] {EVENT_KO[event]}")
             log = log[-5:]
+            if csv:
+                row = [f"{now - start:.2f}", controller.state]
+                if eye is None:
+                    row += ["0"] + [""] * 8
+                else:
+                    row += ["1", str(int(eye.gazing)), str(int(eye.eyes_closed))]
+                    row += [f"{v:.3f}" for v in (eye.ear, eye.blink, eye.iris_h, eye.iris_v, eye.yaw, eye.pitch)]
+                csv.write(",".join(row) + "\n")
 
             state = controller.state
             label, ratio = controller.progress(now)
@@ -112,6 +125,8 @@ def main():
     finally:
         stream.stop()
         detector.close()
+        if csv:
+            csv.close()
         cv2.destroyAllWindows()
 
 
