@@ -50,7 +50,7 @@
 # 프로젝트 구조
 ```text
 OpticCall/
-├── main.py                  # 전체 실행 루프
+├── main.py                  # 전체 실행 (시작 점검 · 호출 판정 · 음성 · 알림 · 호출 기록)
 ├── config.py                # 기본 응시·눈 감김 시간, EAR 임계치, 쿨다운 등 설정값
 │
 ├── profiles/
@@ -78,6 +78,46 @@ OpticCall/
 │
 ├── telegram_setup.py        # 알림 수신자 Chat ID 확인 · 테스트 알림 전송
 ├── requirements.txt
-├── .env.example             # Telegram Bot 토큰 · 수신자 Chat ID
+├── .env.example             # 카메라 IP · Telegram Bot 토큰 · 수신자 Chat ID · 침상 이름
 └── README.md
 ```
+
+# 실행 방법
+**1. 설치** (Windows, Python 3.13)
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+```
+`models/face_landmarker.task`(MediaPipe 얼굴 모델)가 있어야 한다.
+
+**2. 설정 파일 만들기** — `.env.example`을 복사해 `.env`로 이름을 바꾸고 값을 채운다. (`.env`는 GitHub에 올라가지 않는다)
+
+| 항목 | 내용 |
+| --- | --- |
+| `CAMERA_SOURCE` | DroidCam 앱에 보이는 IP (예: `10.22.9.230`), USB·웹캠이면 장치 번호 (예: `1`) |
+| `TELEGRAM_BOT_TOKEN` | BotFather에게 받은 봇 토큰 |
+| `TELEGRAM_CHAT_IDS` | 알림 받을 사람의 Chat ID (쉼표로 여러 명), `python telegram_setup.py`로 확인 |
+| `BED_LABEL` | 알림에 표시할 침상 이름 |
+
+알림 받을 사람은 Telegram에서 봇을 찾아 **시작**을 누른 뒤, `python telegram_setup.py --test`로 테스트 알림을 받아 본다.
+
+**3. 실행**
+```bash
+python main.py
+```
+시작할 때 카메라 · 사용자 응시 시간 · 텔레그램 알림을 점검하고, "옵틱콜을 시작합니다" 음성이 나오면 사용할 수 있다. 종료는 영상 창에서 `q` 또는 `ESC`.
+
+| 옵션 | 내용 |
+| --- | --- |
+| `--user 이름` | 그 사람의 응시 시간(`profiles/users.json`)·개인 보정값 사용 (없으면 공통 기준) |
+| `--camera IP` | 이번 실행만 다른 카메라 사용 |
+| `--no-window` | 영상 창 없이 실행 (종료: Ctrl+C) |
+| `--no-notify` | 텔레그램 알림 없이 실행 (연습·시연용) |
+
+사용자별 응시 시간 설정: `python -m profiles.profile_manager --user 이름 --set first_gaze_sec=3`
+
+호출 기록은 `logs/call_history.csv`에 쌓인다 (질문 · 호출 · 취소 · 알림 전송 결과와 걸린 시간).
+
+**사용 환경 권장**: 카메라를 환자 눈높이, 40~60cm 거리에 둔다. 모자·붕대가 눈썹을 가리지 않게 하고, 스피커 소리를 켜 둔다.
+

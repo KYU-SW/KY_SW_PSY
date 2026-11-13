@@ -1,10 +1,29 @@
 # 기본 응시·눈 감김 시간, EAR 임계치, 쿨다운 등 설정값
+import os
+
+from dotenv import load_dotenv
 
 # ── 카메라 ──────────────────────────────────────────────
-# DroidCam Wi-Fi 연결: 스마트폰 앱에 표시된 IP 주소를 입력
-#   예) CAMERA_SOURCE = "http://192.168.0.12:4747/video"
-# DroidCam Client(가상 웹캠) 또는 USB 웹캠: 장치 번호(0, 1, 2 ...)를 입력
-CAMERA_SOURCE = "http://10.22.14.83:4747/video"
+# 카메라 주소는 실행하는 노트북·와이파이마다 달라서 코드가 아니라 .env에 둔다.
+#   CAMERA_SOURCE=10.22.9.230    -> DroidCam Wi-Fi (앱에 보이는 IP만 적으면 됨)
+#   CAMERA_SOURCE=1              -> DroidCam Client(USB)·웹캠 장치 번호
+# 이번 실행만 바꾸려면: python main.py --camera 10.22.9.230
+load_dotenv()
+
+
+def parse_camera_source(value):
+    """'10.22.9.230' -> DroidCam 주소, '1' -> 장치 번호 1, 전체 주소는 그대로"""
+    v = str(value).strip()
+    if v.isdigit():
+        return int(v)
+    if v.startswith(("http://", "https://", "rtsp://")):
+        return v
+    if ":" not in v:
+        v += ":4747"                     # DroidCam 기본 포트
+    return f"http://{v}/video"
+
+
+CAMERA_SOURCE = parse_camera_source(os.getenv("CAMERA_SOURCE") or "0")
 
 FRAME_WIDTH = 640           # 분석용 프레임 가로 크기 (px)
 RECONNECT_DELAY_SEC = 2.0   # 영상이 끊겼을 때 재연결 대기 시간

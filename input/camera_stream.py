@@ -1,8 +1,26 @@
 # DroidCam 영상 수신 (OpenCV)
+import socket
 import threading
 import time
+from urllib.parse import urlparse
 
 import cv2
+
+
+def check_reachable(source, timeout=3.0):
+    """IP 카메라에 바로 접속되는지 확인한다. (True, '') 또는 (False, 이유)
+
+    OpenCV는 응답 없는 주소를 열면 30초 가까이 멈춰 있으므로, 먼저 짧게 확인한다.
+    장치 번호(USB·웹캠)는 확인하지 않고 True.
+    """
+    if isinstance(source, int):
+        return True, ""
+    url = urlparse(source)
+    try:
+        with socket.create_connection((url.hostname, url.port or 80), timeout=timeout):
+            return True, ""
+    except OSError:
+        return False, f"{url.hostname}:{url.port}에 연결할 수 없습니다"
 
 
 class CameraStream:

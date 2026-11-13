@@ -8,3 +8,6 @@ profiles/samples_*.json
 profiles/calibration_*.json
 !profiles/calibration_results.csv
 profiles/users.json
+
+# 호출 기록 (이 노트북에서만 보관)
+logs/

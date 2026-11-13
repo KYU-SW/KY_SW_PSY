@@ -1,5 +1,5 @@
 # 2단계 카메라 연결 테스트
-#   python test_camera.py                 -> config.py의 CAMERA_SOURCE 사용
+#   python test_camera.py                 -> (.env의 CAMERA_SOURCE 사용)
 #   python test_camera.py 192.168.0.12    -> DroidCam Wi-Fi (IP만 입력)
 #   python test_camera.py 1               -> 장치 번호 1번 카메라
 #   python test_camera.py --list          -> 사용 가능한 장치 번호 찾기
@@ -11,14 +11,6 @@ import cv2
 
 import config
 from input.camera_stream import CameraStream
-
-
-def parse_source(arg):
-    if arg.isdigit():
-        return int(arg)
-    if arg.startswith("http"):
-        return arg
-    return f"http://{arg}:4747/video"
 
 
 def list_devices(max_index=5):
@@ -39,7 +31,7 @@ def main():
         list_devices()
         return
 
-    source = parse_source(sys.argv[1]) if len(sys.argv) > 1 else config.CAMERA_SOURCE
+    source = config.parse_camera_source(sys.argv[1]) if len(sys.argv) > 1 else config.CAMERA_SOURCE
     print(f"카메라 연결: {source}")
     stream = CameraStream(source, config.FRAME_WIDTH, config.RECONNECT_DELAY_SEC).start()
 

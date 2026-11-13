@@ -50,6 +50,8 @@ class SendResult:
     count: int                         # 몇 번째 호출인지 (재호출이면 2 이상)
     sent: list = field(default_factory=list)     # 받은 Chat ID
     failed: list = field(default_factory=list)   # (Chat ID, 이유)
+    seconds: float = 0.0               # 호출 확정부터 전송 완료까지 걸린 시간
+    retries: int = 0                   # 다시 보낸 횟수 (모든 수신자 합계)
 
 
 class Notifier:
@@ -67,6 +69,19 @@ class Notifier:
     def configured(self):
         return bool(self.token and self.chat_ids)
 
+    def check(self):
+        """시작할 때 확인: (True, 봇 이름) 또는 (False, 이유). 메시지는 보내지 않는다."""
+        if not self.configured():
+            return False, ".env에 TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_IDS가 없습니다"
+        try:
+            r = requests.get(API_URL.format(token=self.token, method="getMe"),
+                             timeout=config.NOTIFY_TIMEOUT_SEC).json()
+        except (requests.RequestException, ValueError) as e:
+            return False, f"텔레그램 서버에 연결할 수 없습니다 ({type(e).__name__})"
+        if not r.get("ok"):
+            return False, f"봇 토큰이 올바르지 않습니다 ({r.get('description', '')})"
+        return True, "@" + r["result"]["username"]
+
     def notify_call(self, when=None):
         """호출 알림을 보낸다 (바로 돌아옴). 몇 번째 호출인지 돌려준다."""
         when = when or datetime.now()
@@ -80,7 +95,7 @@ class Notifier:
         if self._worker is None:
             self._worker = threading.Thread(target=self._run, daemon=True)
             self._worker.start()
-        self._todo.put((text, count))
+        self._todo.put((text, count, time.time()))
         return count
 
     def send_text(self, text):
@@ -88,7 +103,7 @@ class Notifier:
         if self._worker is None:
             self._worker = threading.Thread(target=self._run, daemon=True)
             self._worker.start()
-        self._todo.put((text, 0))
+        self._todo.put((text, 0, time.time()))
 
     def poll_results(self):
         out = []
@@ -105,35 +120,39 @@ class Notifier:
 
     def _run(self):
         while True:
-            text, count = self._todo.get()
+            text, count, queued_at = self._todo.get()
             result = SendResult(ok=False, count=count)
             if not self.configured():
                 result.failed.append(("-", ".env에 TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_IDS가 없음"))
             for chat_id in self.chat_ids if self.configured() else []:
-                reason = self._send_one(chat_id, text)
+                reason, tries = self._send_one(chat_id, text)
+                result.retries += tries - 1
                 if reason is None:
                     result.sent.append(chat_id)
                 else:
                     result.failed.append((chat_id, reason))
             result.ok = bool(result.sent)
+            result.seconds = time.time() - queued_at
             for chat_id, reason in result.failed:
                 print(f"[알림 실패] {chat_id}: {reason}")
             if result.sent:
-                print(f"[알림 전송] {len(result.sent)}명 수신")
+                extra = f", 재시도 {result.retries}번" if result.retries else ""
+                print(f"[알림 전송] {len(result.sent)}명 수신 ({result.seconds:.1f}초{extra})")
             self._results.put(result)
 
     def _send_one(self, chat_id, text):
-        """성공하면 None, 실패하면 이유. 실패하면 1초, 2초 기다렸다가 다시 보낸다."""
+        """(실패 이유 또는 None, 시도 횟수). 실패하면 1초, 2초 기다렸다가 다시 보낸다."""
         url = API_URL.format(token=self.token, method="sendMessage")
         reason = "알 수 없음"
         for attempt in range(config.NOTIFY_RETRIES):
             if attempt:
+                print(f"[알림 재시도] {chat_id}: {reason}")
                 time.sleep(attempt)
             try:
                 r = self._post(url, data={"chat_id": chat_id, "text": text},
                                timeout=config.NOTIFY_TIMEOUT_SEC)
                 if r.status_code == 200:
-                    return None
+                    return None, attempt + 1
                 desc = ""
                 try:
                     desc = r.json().get("description", "")
@@ -144,4 +163,4 @@ class Notifier:
                     break
             except requests.RequestException as e:
                 reason = f"연결 실패 ({type(e).__name__})"
-        return reason
+        return reason, attempt + 1
