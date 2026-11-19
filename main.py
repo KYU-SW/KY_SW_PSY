@@ -4,10 +4,12 @@
 #   python main.py --camera 10.22.9.230  -> 이번 실행만 다른 카메라 (DroidCam IP 또는 장치 번호)
 #   python main.py --no-window           -> 영상 창 없이 실행 (종료: Ctrl+C)
 #   python main.py --no-notify           -> 텔레그램 알림 없이 (시연·연습용)
+#   python settings_app.py               -> 설정 화면 (카메라·알림·응시 시간 설정 후 [저장하고 시작])
 # 종료: 영상 창에서 q 또는 ESC
 #
 #   카메라(Input) → 얼굴·눈 분석(Vision) → 호출 판정(Decision) → 음성·알림(Output)
 import argparse
+import atexit
 import csv
 import os
 import sys
@@ -119,7 +121,10 @@ def main():
     parser.add_argument("--camera", help="이번 실행만 쓸 카메라 (DroidCam IP 또는 장치 번호)")
     parser.add_argument("--no-window", action="store_true", help="영상 창 없이 실행")
     parser.add_argument("--no-notify", action="store_true", help="텔레그램 알림 없이 실행")
+    parser.add_argument("--pause", action="store_true", help="끝날 때 Enter를 누를 때까지 창을 닫지 않음 (설정 화면에서 실행할 때)")
     args = parser.parse_args()
+    if args.pause:              # 점검 실패 이유나 실행 요약을 읽기 전에 창이 닫히지 않게
+        atexit.register(lambda: input("\nEnter를 누르면 창이 닫힙니다..."))
 
     ready = startup(args)
     if ready is None:
@@ -156,6 +161,11 @@ def main():
                     else:
                         history.write("ALERT_FAILED", "; ".join(f"{c}: {why}" for c, why in r.failed))
                         guide.notify_failed()
+                for ack in notifier.poll_acks():
+                    history.write("ACK", f"{ack.count}회째 호출, {ack.who}님이 {ack.seconds:.0f}초 만에 확인")
+                    recent = (recent + [f"{datetime.now().strftime('%H:%M:%S')}  ACK"])[-5:]
+                    if ack.latest:               # 더 최근에 다시 호출했으면 지난 호출의 확인은 안내하지 않는다
+                        guide.nurse_acked()
 
             for event in controller.update(eye, now):
                 stamp = datetime.now().strftime("%H:%M:%S")
@@ -182,7 +192,7 @@ def main():
         c = history.counts
         print(f"\n종료합니다. 이번 실행: 질문 {c.get('ASK', 0)}회 · 호출 {c.get('CALL', 0)}회 · "
               f"취소 {c.get('CANCEL', 0)}회 · 응답 없음 {c.get('TIMEOUT', 0)}회 "
-              f"(알림 실패 {c.get('ALERT_FAILED', 0)}회)")
+              f"(알림 실패 {c.get('ALERT_FAILED', 0)}회 · 간호사 확인 {c.get('ACK', 0)}회)")
         print(f"호출 기록: {LOG_FILE}")
         history.close()
         stream.stop()

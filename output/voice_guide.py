@@ -29,6 +29,7 @@ def build_phrases(dwell=None):
         "CANCEL": "호출을 취소했습니다.",
         "TIMEOUT": "응답이 없어 호출하지 않았습니다.",
         "NOTIFY_FAIL": "알림을 보내지 못했습니다. 다시 호출해 주세요.",
+        "ACK": "간호사가 호출을 확인했습니다. 곧 도착합니다.",
     }
 
 
@@ -50,6 +51,10 @@ class VoiceGuide:
     def notify_failed(self):
         """호출 알림이 아무에게도 가지 않았을 때. 환자가 호출된 줄 알고 기다리지 않게 알린다."""
         self.speaker.say_async(self.phrases["NOTIFY_FAIL"], "NOTIFY_FAIL")
+
+    def nurse_acked(self):
+        """간호사가 알림의 '확인' 버튼을 눌렀을 때. 환자가 호출이 전달됐는지 알 수 있게 한다."""
+        self.speaker.say_async(self.phrases["ACK"], "ACK")
 
     def sync(self, controller):
         """다 읽은 음성을 컨트롤러에 알린다. 매 프레임 부른다."""

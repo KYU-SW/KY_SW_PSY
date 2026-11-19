@@ -1,12 +1,14 @@
 # 7단계 Telegram 알림 설정 도우미
 #   python telegram_setup.py           -> 봇에게 메시지를 보낸 사람·단체방의 Chat ID 목록
 #   python telegram_setup.py --test    -> .env의 모든 수신자에게 테스트 알림 전송
-#   python telegram_setup.py --call    -> 실제 호출 알림 문구로 전송
+#   python telegram_setup.py --call    -> 실제 호출 알림 문구로 전송 ('확인' 버튼 포함)
+#                                         버튼을 누르면 확인됐다고 출력한다 (최대 2분 기다림)
 #
 # 먼저 .env에 TELEGRAM_BOT_TOKEN을 넣고, 알림 받을 사람이 봇에게 아무 메시지나 보내 둔다.
 # (단체방이면 봇을 방에 초대한 뒤 방에서 /start 를 보낸다)
 import argparse
 import sys
+import time
 
 import requests
 
@@ -64,6 +66,17 @@ def main():
         print(f"보냄: {len(result[0].sent)}명 / 실패: {len(result[0].failed)}명")
     else:
         print("아무에게도 보내지 못했습니다. 위의 실패 이유를 확인하세요.")
+        return
+    if args.call:
+        print("Telegram 알림의 '확인' 버튼을 눌러 보세요. (2분 기다림, 그만두려면 Ctrl+C)")
+        end = time.time() + 120
+        while time.time() < end:
+            for ack in notifier.poll_acks():
+                print(f"확인됨: {ack.who}님, 호출 {ack.seconds:.0f}초 후 -> 실제 실행이면 환자에게 "
+                      f"'간호사가 호출을 확인했습니다' 안내")
+                return
+            time.sleep(0.2)
+        print("2분 동안 버튼을 누르지 않았습니다.")
 
 
 if __name__ == "__main__":
