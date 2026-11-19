@@ -8,7 +8,17 @@ from dotenv import load_dotenv
 #   CAMERA_SOURCE=10.22.9.230    -> DroidCam Wi-Fi (앱에 보이는 IP만 적으면 됨)
 #   CAMERA_SOURCE=1              -> DroidCam Client(USB)·웹캠 장치 번호
 # 이번 실행만 바꾸려면: python main.py --camera 10.22.9.230
-load_dotenv()
+#
+# 실행 파일(OpticCall.exe)로 실행하면 .env, profiles/, models/, logs/는 exe 옆 폴더를 쓴다.
+import sys
+
+if getattr(sys, "frozen", False):
+    BASE_DIR = os.path.dirname(sys.executable)
+    os.chdir(BASE_DIR)               # profiles/, models/, logs/ 같은 상대 경로가 exe 옆을 가리키게
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ENV_FILE = os.path.join(BASE_DIR, ".env")
+load_dotenv(ENV_FILE)
 
 
 def parse_camera_source(value):

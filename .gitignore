@@ -11,3 +11,8 @@ profiles/users.json
 
 # 호출 기록 (이 노트북에서만 보관)
 logs/
+
+# 실행 파일 만들기 결과
+build/
+dist/
+*.spec

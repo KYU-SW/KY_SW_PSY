@@ -45,6 +45,7 @@ def set_dwell(user, key, value):
     value = validate_dwell(key, value)
     users = _load_all()
     users.setdefault(user, {})[key] = value
+    os.makedirs(os.path.dirname(USERS_FILE), exist_ok=True)
     with open(USERS_FILE, "w", encoding="utf-8") as f:
         json.dump(users, f, ensure_ascii=False, indent=2)
     return value
