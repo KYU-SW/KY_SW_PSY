@@ -83,6 +83,7 @@ OpticCall/
 │   └── usecase.png
 │
 ├── telegram_setup.py        # 알림 수신자 Chat ID 확인 · 테스트 알림 전송
+├── scenario_test.py         # 시험 도구: 호출 · 취소 · 딴 데 보기(오호출) 시험과 결과표
 ├── requirements.txt
 ├── .env.example             # 카메라 IP · Telegram Bot 토큰 · 수신자 Chat ID · 침상 이름
 └── README.md
@@ -126,6 +127,13 @@ python main.py
 사용자별 응시 시간 설정: `python -m profiles.profile_manager --user 이름 --set first_gaze_sec=3`
 
 호출 기록은 `logs/call_history.csv`에 쌓인다 (질문 · 호출 · 취소 · 알림 전송 결과와 걸린 시간).
+
+**시험하기** (한 사람당 약 5분)
+```bash
+python scenario_test.py --name 시험자A --note 안경
+```
+음성 안내에 따라 호출 3번(보고 → 질문 → 다시 보기), 취소 2번(보고 → 질문 → 눈 감기), 60초 딴 데 보기(질문·호출이 없어야 성공)를 차례로 한다.
+`--notify`를 붙이면 실제 Telegram 알림('[시험]' 표시)과 '확인' 버튼까지 시간을 잰다. 결과는 `results/`에 저장되고(GitHub에는 올리지 않음), 전체 결과표는 `python scenario_test.py --report`.
 
 **실행 파일(.exe) 만들기**
 ```bash

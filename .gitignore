@@ -16,3 +16,6 @@ logs/
 build/
 dist/
 *.spec
+
+# 시험 결과 (시험자 이름이 들어 있음)
+results/
