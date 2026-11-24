@@ -84,6 +84,10 @@ OpticCall/
 │
 ├── telegram_setup.py        # 알림 수신자 Chat ID 확인 · 테스트 알림 전송
 ├── scenario_test.py         # 시험 도구: 호출 · 취소 · 딴 데 보기(오호출) 시험과 결과표
+├── webapp/                  # 휴대폰 앱 (웹앱, 홈 화면에 설치)
+│   ├── patient/             # 환자 앱: 홈 · 시선 추적 · 눈 맞추기 · 설정
+│   ├── core/                # 판정 로직 (파이썬 features · call_controller를 옮김), 음성, 카메라
+│   └── test/                # 판정 로직 확인 페이지 (파이썬 테스트와 같은 경우 포함)
 ├── requirements.txt
 ├── .env.example             # 카메라 IP · Telegram Bot 토큰 · 수신자 Chat ID · 침상 이름
 └── README.md
@@ -134,6 +138,15 @@ python scenario_test.py --name 시험자A --note 안경
 ```
 음성 안내에 따라 호출 3번(보고 → 질문 → 다시 보기), 취소 2번(보고 → 질문 → 눈 감기), 60초 딴 데 보기(질문·호출이 없어야 성공)를 차례로 한다.
 `--notify`를 붙이면 실제 Telegram 알림('[시험]' 표시)과 '확인' 버튼까지 시간을 잰다. 결과는 `results/`에 저장되고(GitHub에는 올리지 않음), 전체 결과표는 `python scenario_test.py --report`.
+
+**휴대폰 앱 (환자)**
+휴대폰을 침대 옆쪽 위(얼굴 정면에서 30° 정도, 40~60cm)에 두고, 환자는 고개를 돌리지 않고 눈만 돌려 화면 위 눈 모양을 바라본다.
+평소 천장을 볼 때는 반응하지 않는다. 노트북에서 시험할 때:
+```bash
+python -m http.server 8765 --directory webapp
+```
+Chrome에서 `http://localhost:8765/patient/` → [눈 맞추기] → [호출 대기 시작]. 판정 로직 확인: `http://localhost:8765/test/`
+휴대폰에서는 카메라 때문에 `https://` 주소가 필요하다 (GitHub Pages 등).
 
 **실행 파일(.exe) 만들기**
 ```bash

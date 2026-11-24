@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpticCall 판정 테스트</title>
+<style>
+  body { font: 15px/1.6 system-ui, sans-serif; margin: 24px; background: #fff; color: #111; }
+  .ok { color: #0a7a3a; } .bad { color: #c62828; font-weight: 600; }
+  #sum { font-size: 18px; font-weight: 700; margin-top: 16px; }
+</style>
+</head>
+<body>
+<h1>호출 판정 테스트 (파이썬 test_call_controller.py와 같은 22개)</h1>
+<div id="out"></div>
+<div id="sum"></div>
+<script type="module">
+import { CallController, ASKING, WAITING, COOLDOWN, IDLE } from "../core/controller.js";
+import { judge, DEFAULT_CALIBRATION, GAZE_TOLERANCE, buildCalibration, headAngles } from "../core/features.js";
+
+const FPS = 30;
+const GAZE = { gazing: true, eyesClosed: false };
+const AWAY = { gazing: false, eyesClosed: false };
+const CLOSED = { gazing: false, eyesClosed: true };
+const NO_FACE = null;
+
+class Sim {
+  constructor(dwell) { this.c = new CallController(dwell); this.t = 0; this.events = []; }
+  run(eye, seconds) {
+    for (let i = 0; i < Math.round(seconds * FPS); i++) {
+      this.t += 1 / FPS;
+      for (const e of this.c.update(eye, this.t)) this.events.push([e, +this.t.toFixed(2)]);
+    }
+    return this;
+  }
+  answerReady() { this.c.questionFinished(this.t); return this; }
+  announced() { this.c.announcementFinished(this.t); return this; }
+  names() { return this.events.map((e) => e[0]); }
+}
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const results = [];
+const out = document.getElementById("out");
+function check(name, cond, detail) {
+  results.push(!!cond);
+  const d = document.createElement("div");
+  d.className = cond ? "ok" : "bad";
+  d.textContent = `${cond ? "✅" : "❌"} ${name}` + (cond ? "" : `  (${JSON.stringify(detail)})`);
+  out.appendChild(d);
+}
+
+let s;
+s = new Sim().run(GAZE, 3.6); check("3.5초 응시하면 질문", same(s.names(), ["ASK"]) && s.c.state === ASKING, s.events);
+s = new Sim().run(GAZE, 3.0); check("3초만 응시하면 질문 안 함", same(s.names(), []), s.events);
+s = new Sim().run(GAZE, 3.6).answerReady().run(GAZE, 3.6); check("질문 후 3.5초 응시하면 호출", same(s.names(), ["ASK", "CALL"]), s.events);
+s = new Sim().run(GAZE, 3.6).run(GAZE, 5).answerReady(); check("질문 음성이 나오는 동안의 응시는 확정으로 치지 않음", same(s.names(), ["ASK"]) && s.c.state === WAITING, s.events);
+s = new Sim().run(GAZE, 3.6).answerReady().run(CLOSED, 3.6); check("질문 후 3.5초 눈 감으면 취소", same(s.names(), ["ASK", "CANCEL"]), s.events);
+s = new Sim().run(GAZE, 3.6).run(CLOSED, 3.6); check("질문 음성 중에 3.5초 눈 감으면 바로 취소", same(s.names(), ["ASK", "CANCEL"]) && s.c.state === COOLDOWN, s.events);
+s = new Sim().run(GAZE, 3.6).run(CLOSED, 2).answerReady().run(CLOSED, 1.6); check("질문 중 2초 + 질문 끝난 뒤 1.6초 감으면 합쳐서 취소", same(s.names(), ["ASK", "CANCEL"]), s.events);
+s = new Sim().run(GAZE, 3.6).run(CLOSED, 2).run(AWAY, 1).answerReady().run(CLOSED, 2); check("질문 중 감았다가 1초 이상 뜨면 처음부터 다시 셈", same(s.names(), ["ASK"]), s.events);
+s = new Sim().run(GAZE, 3.6); for (let i = 0; i < 4; i++) s.run(GAZE, 1).run(CLOSED, 0.2); s.answerReady();
+check("질문 중 깜빡임으로는 취소 안 됨", same(s.names(), ["ASK"]) && s.c.state === WAITING, s.events);
+s = new Sim().run(GAZE, 3.6).answerReady().run(AWAY, 11); check("질문 후 응답이 없으면 시간 초과 (10.5초)", same(s.names(), ["ASK", "TIMEOUT"]), s.events);
+s = new Sim(); for (let i = 0; i < 6; i++) s.run(GAZE, 0.7).run(AWAY, 0.3); check("0.3초 끊김은 봐주고 이어서 셈", s.names().includes("ASK"), s.events);
+s = new Sim().run(GAZE, 2).run(AWAY, 1).run(GAZE, 2); check("1초 이상 다른 곳을 보면 처음부터 다시 셈", same(s.names(), []), s.events);
+s = new Sim().run(GAZE, 3.6).answerReady().run(GAZE, 1.5).run(CLOSED, 0.2).run(GAZE, 2); check("확정 응시 중 깜빡임(0.2초)은 무시", same(s.names(), ["ASK", "CALL"]), s.events);
+s = new Sim().run(GAZE, 2).run(NO_FACE, 0.8).run(GAZE, 1.6); check("얼굴을 0.8초 놓쳐도 이어서 셈", s.names().includes("ASK"), s.events);
+s = new Sim().run(GAZE, 2).run(NO_FACE, 1.5).run(GAZE, 2); check("얼굴을 1.5초 놓치면 처음부터 다시 셈", same(s.names(), []), s.events);
+s = new Sim().run(GAZE, 3.6).answerReady().run(GAZE, 3.6).run(AWAY, 2).run(GAZE, 5); check("결과 안내가 끝나기 전에는 다시 질문 안 함", same(s.names(), ["ASK", "CALL"]), s.events);
+s = new Sim().run(GAZE, 3.6).answerReady().run(GAZE, 3.6).announced().run(GAZE, 30); check("안내 후에도 계속 쳐다보기만 하면 다시 질문 안 함", same(s.names(), ["ASK", "CALL"]) && s.c.state === COOLDOWN, s.events);
+s = new Sim().run(GAZE, 3.6).answerReady().run(GAZE, 3.6).announced().run(AWAY, 0.6); s.run(GAZE, 3.6);
+check("안내 후 시선을 뗐다가 다시 보면 바로 재호출 질문", same(s.names(), ["ASK", "CALL", "READY", "ASK"]), s.events);
+s = new Sim().run(GAZE, 3.6).answerReady().run(CLOSED, 3.6).announced().run(CLOSED, 0.1); check("취소 안내가 끝나면 바로 대기로 복귀", same(s.names(), ["ASK", "CANCEL", "READY"]) && s.c.state === IDLE, s.events);
+s = new Sim().run(GAZE, 3.6).answerReady().run(GAZE, 3.6).announced().run(NO_FACE, 1.5); check("안내 후 얼굴이 안 보여도 대기로 복귀", s.names().at(-1) === "READY", s.events);
+s = new Sim({ first_gaze_sec: 2.0 }).run(GAZE, 2.1); check("사용자 설정 2초면 2초 응시로 질문", same(s.names(), ["ASK"]), s.events);
+s = new Sim().run(CLOSED, 10); check("대기 중 눈을 오래 감아도 아무 일 없음", same(s.names(), []) && s.c.state === IDLE, s.events);
+
+// 판정·보정 (앱에서 추가된 부분)
+const f = { ear: 0.3, blink: 0.1, iris_h: 0.5, iris_v: -0.07, yaw: 0, pitch: 0 };
+check("기준값 그대로면 응시", judge(f, DEFAULT_CALIBRATION, GAZE_TOLERANCE).gazing);
+check("홍채가 옆으로 가면 응시 아님", !judge({ ...f, iris_h: 0.6 }, DEFAULT_CALIBRATION, GAZE_TOLERANCE).gazing);
+check("EAR이 낮으면 눈 감음", judge({ ...f, ear: 0.1 }, DEFAULT_CALIBRATION, GAZE_TOLERANCE).eyesClosed);
+const look = Array.from({ length: 30 }, () => ({ ...f, iris_v: 0.02, pitch: -12, ear: 0.3 }));
+const closed = Array.from({ length: 30 }, () => ({ ...f, ear: 0.08 }));
+const cal = buildCalibration(look, closed);
+check("눈 맞추기: 누워서 위를 볼 때의 위치를 기준으로", cal.iris_v_center === 0.02 && cal.pitch_center === -12, cal);
+check("눈 맞추기: 눈 감김 기준을 뜬 눈·감은 눈 사이로", cal.ear_closed > 0.08 && cal.ear_closed < 0.3, cal);
+const weak = buildCalibration(look, Array.from({ length: 30 }, () => ({ ...f, ear: 0.08, blink: 0.4 })));
+check("눈 맞추기: 감김 점수가 낮은 사람은 감김 기준을 낮춤", weak.blink_closed < 0.4 && weak.blink_closed > 0.1, weak);
+const half = buildCalibration(look, Array.from({ length: 30 }, () => ({ ...f, ear: 0.28, blink: 0.12 })));
+check("눈 맞추기: 눈을 덜 감았으면 감김 기준은 그대로", half.ear_closed === 0.15 && half.blink_closed === 0.45, half);
+// 눈만 옆으로 돌려 볼 때: 값이 흔들리면 허용 범위를 넓힌다
+const jitter = Array.from({ length: 60 }, (_, i) => ({ ...f, iris_h: 0.68 + (i % 2 ? 0.05 : -0.05), yaw: 22 + (i % 3 - 1) * 6 }));
+const side = buildCalibration(jitter, []);
+const sideEx = { ...side };
+check("옆으로 보기: 흔들리는 만큼 허용 범위를 넓힘", side.tolerance.iris_h > 0.06 && side.tolerance.yaw >= 8, side.tolerance);
+check("옆으로 보기: 흔들려도 바라보는 동안은 응시", jitter.every((x) => judge(x, side, side.tolerance).gazing));
+check("옆으로 보기: 천장(정면)을 보면 응시 아님", !judge({ ...f, iris_h: 0.5, yaw: 22 }, side, side.tolerance).gazing);
+// 행렬 방향: 같은 회전을 행 우선 / 열 우선으로 줘도 같은 각도
+const a = 10 * Math.PI / 180, R = [[Math.cos(a), 0, Math.sin(a)], [0, 1, 0], [-Math.sin(a), 0, Math.cos(a)]];
+const rowMajor = [...R[0], 0, ...R[1], 0, ...R[2], -40, 0, 0, 0, 1];
+const colMajor = [R[0][0], R[1][0], R[2][0], 0, R[0][1], R[1][1], R[2][1], 0, R[0][2], R[1][2], R[2][2], 0, 0, 0, -40, 1];
+const [y1] = headAngles({ data: rowMajor }), [y2] = headAngles({ data: colMajor });
+check("고개 각도: 행렬 저장 순서와 관계없이 같은 값 (10도)", Math.abs(y1 - 10) < 0.01 && Math.abs(y2 - 10) < 0.01, [y1, y2]);
+
+const ok = results.filter(Boolean).length;
+document.getElementById("sum").textContent = `결과: ${ok}/${results.length} 통과`;
+document.title = `${ok}/${results.length}`;
+</script>
+</body>
+</html>
