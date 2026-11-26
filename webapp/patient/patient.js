@@ -1,6 +1,6 @@
 // OpticCall 환자 앱: 홈 · 호출 대기(시선 추적) · 눈 맞추기 · 설정
 import { Camera } from "../core/camera.js";
-import { CallController, buildPhrases, secondsText, IDLE, ASKING, WAITING, COOLDOWN } from "../core/controller.js";
+import { CallController, COOLDOWN_APP, buildPhrases, secondsText, IDLE, ASKING, WAITING, COOLDOWN } from "../core/controller.js";
 import { FeatureExtractor, buildCalibration, rawFeatures } from "../core/features.js";
 import { createLink } from "../core/link.js";
 import { store } from "../core/store.js";
@@ -132,7 +132,7 @@ class Session {
     const p = store.patient;
     this.dwell = { ...p.dwell };
     this.phrases = buildPhrases(this.dwell);
-    this.controller = new CallController(this.dwell);
+    this.controller = new CallController(this.dwell, { ...COOLDOWN_APP, CALL: store.data.callCooldownSec ?? COOLDOWN_APP.CALL });
     this.extractor = new FeatureExtractor(p.calib || undefined);
     this.lastResult = null;
     this.callId = null;
@@ -186,6 +186,11 @@ class Session {
 
   tick() {
     if (!this.running) return;
+    // 의료진 앱에 '이 침상 앱이 켜져 있다'를 알린다 (3초마다)
+    if (Date.now() - (this.lastStatus || 0) > 3000) {
+      this.lastStatus = Date.now();
+      link.sendStatus({ bed: store.data.bed, patient: store.data.current, state: this.controller.state });
+    }
     const r = camera.detect();
     if (r !== undefined) {
       const now = clock();
@@ -231,6 +236,10 @@ class Session {
           ? `바라보는 중 · ${Math.max(0, d.confirm_gaze_sec * (1 - p.value)).toFixed(1)}초 뒤 호출`
           : `계속 바라보면 호출, 눈을 감으면 취소 (${Math.ceil(p.remain)}초)`;
       label = "대답해 주세요";
+    } else if (p.kind === "rest") {
+      head = c.lastResult === "CALL" ? "간호사를 부른 뒤 쉬는 중이에요" : "잠시 쉬는 중이에요";
+      sub = `${Math.ceil(p.remain)}초 뒤에 다시 부를 수 있어요`;
+      label = `${Math.ceil(p.remain)}초`;
     } else {
       head = p.kind === "lookaway" ? "잠시 다른 곳을 봐 주세요" : "안내를 듣고 있어요";
       sub = p.kind === "lookaway" ? "다시 부르려면 눈을 뗐다가 다시 바라보세요" : "";
@@ -474,6 +483,9 @@ function renderSettings() {
   rate.querySelector(".val").textContent = `${store.data.voiceRate.toFixed(1)}배`;
   $("setShowCam").checked = store.data.showCamera;
   $("setReadout").checked = !!store.data.showReadout;
+  const cd = $("cooldownSlider");
+  cd.querySelector("input").value = store.data.callCooldownSec ?? 30;
+  cd.querySelector(".val").textContent = `${store.data.callCooldownSec ?? 30}초`;
   fillCameraSelect();
   const c = store.patient.calib;
   $("calibInfo").textContent = c ? `눈 맞추기: ${new Date(c.at).toLocaleDateString()} ${timeText(c.at)}` : "눈 맞추기 안 함 (공통 기준)";
@@ -522,6 +534,11 @@ $("rateSlider").querySelector("input").addEventListener("input", (e) => {
   voice.rate = store.data.voiceRate;
   store.save();
   $("rateSlider").querySelector(".val").textContent = `${store.data.voiceRate.toFixed(1)}배`;
+});
+$("cooldownSlider").querySelector("input").addEventListener("input", (e) => {
+  store.data.callCooldownSec = parseInt(e.target.value, 10);
+  store.save();
+  $("cooldownSlider").querySelector(".val").textContent = `${store.data.callCooldownSec}초`;
 });
 $("btnVoiceTest").addEventListener("click", () => {
   voice.unlock();

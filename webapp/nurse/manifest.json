@@ -1,0 +1,15 @@
+{
+  "name": "OpticCall 간호사실",
+  "short_name": "OpticCall 간호",
+  "description": "환자의 시선 호출을 받는 의료진 앱",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f3f8fa",
+  "theme_color": "#0f3b4c",
+  "icons": [
+    { "src": "../icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "../icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

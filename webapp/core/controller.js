@@ -39,8 +39,14 @@ class HoldTimer {
   }
 }
 
+// 결과 뒤 다시 질문하지 않는 시간(초). 앱은 설정값을 넘긴다 (호출 후 기본 30초, 취소·응답 없음 후 5초).
+// 기본값 0은 파이썬 버전과 같다: 안내가 끝나고 시선을 한 번 떼면 바로 다시 셀 수 있음.
+export const COOLDOWN_APP = { CALL: 30, CANCEL: 5, TIMEOUT: 5 };
+
 export class CallController {
-  constructor(dwell) {
+  constructor(dwell, cooldown) {
+    this.cooldown = { CALL: 0, CANCEL: 0, TIMEOUT: 0, ...(cooldown || {}) };
+    this.cooldownUntil = 0;
     this.dwell = { ...DWELL_DEFAULTS, ...(dwell || {}) };
     this.gaze = new HoldTimer(GRACE_SEC);
     this.closed = new HoldTimer(GRACE_SEC);
@@ -78,13 +84,14 @@ export class CallController {
         return ["ASK"];
       }
     } else if (this.state === ASKING) {
-      if (this.closed.elapsed() >= d.cancel_close_sec) return this.coolDown("CANCEL");
+      if (this.closed.elapsed() >= d.cancel_close_sec) return this.coolDown("CANCEL", now);
     } else if (this.state === WAITING) {
-      if (this.gaze.elapsed() >= d.confirm_gaze_sec) return this.coolDown("CALL");
-      if (this.closed.elapsed() >= d.cancel_close_sec) return this.coolDown("CANCEL");
-      if (now >= this.deadline) return this.coolDown("TIMEOUT");
+      if (this.gaze.elapsed() >= d.confirm_gaze_sec) return this.coolDown("CALL", now);
+      if (this.closed.elapsed() >= d.cancel_close_sec) return this.coolDown("CANCEL", now);
+      if (now >= this.deadline) return this.coolDown("TIMEOUT", now);
     } else if (this.state === COOLDOWN) {
-      if (this.announced && !this.gaze.holding()) {
+      // 안내가 끝나고, 쿨다운 시간이 지나고, 시선을 한 번 뗀 상태여야 다시 대기
+      if (this.announced && now >= this.cooldownUntil && !this.gaze.holding()) {
         this.state = IDLE;
         this.resetTimers();
         return ["READY"];
@@ -103,7 +110,11 @@ export class CallController {
       const remain = Math.max(0, this.deadline - now);
       return g >= c ? { kind: "confirm", value: Math.min(1, g), remain } : { kind: "close", value: Math.min(1, c), remain };
     }
-    if (this.state === COOLDOWN) return { kind: this.announced ? "lookaway" : "announce", value: 0 };
+    if (this.state === COOLDOWN) {
+      if (!this.announced) return { kind: "announce", value: 0 };
+      const remain = this.cooldownUntil - now;
+      return remain > 0 ? { kind: "rest", value: 0, remain } : { kind: "lookaway", value: 0 };
+    }
     if (this.closed.holding()) return { kind: "close", value: Math.min(1, this.closed.elapsed() / d.cancel_close_sec) };
     return { kind: "asking", value: 0 };
   }
@@ -124,9 +135,11 @@ export class CallController {
     this.closed.reset();
   }
 
-  coolDown(event) {
+  coolDown(event, now = 0) {
     this.state = COOLDOWN;
     this.announced = false;
+    this.lastResult = event;
+    this.cooldownUntil = now + (this.cooldown[event] || 0);
     this.closed.reset();
     return [event];
   }

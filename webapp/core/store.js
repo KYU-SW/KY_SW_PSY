@@ -9,6 +9,7 @@ const DEFAULT = {
   voiceRate: 1.0,
   showCamera: true,
   cameraId: null,
+  callCooldownSec: 30,          // 호출 후 다시 질문하지 않는 시간
   history: [],
 };
 

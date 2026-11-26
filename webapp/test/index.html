@@ -15,7 +15,7 @@
 <div id="out"></div>
 <div id="sum"></div>
 <script type="module">
-import { CallController, ASKING, WAITING, COOLDOWN, IDLE } from "../core/controller.js";
+import { CallController, COOLDOWN_APP, ASKING, WAITING, COOLDOWN, IDLE } from "../core/controller.js";
 import { judge, DEFAULT_CALIBRATION, GAZE_TOLERANCE, buildCalibration, headAngles } from "../core/features.js";
 
 const FPS = 30;
@@ -73,6 +73,19 @@ s = new Sim().run(GAZE, 3.6).answerReady().run(CLOSED, 3.6).announced().run(CLOS
 s = new Sim().run(GAZE, 3.6).answerReady().run(GAZE, 3.6).announced().run(NO_FACE, 1.5); check("안내 후 얼굴이 안 보여도 대기로 복귀", s.names().at(-1) === "READY", s.events);
 s = new Sim({ first_gaze_sec: 2.0 }).run(GAZE, 2.1); check("사용자 설정 2초면 2초 응시로 질문", same(s.names(), ["ASK"]), s.events);
 s = new Sim().run(CLOSED, 10); check("대기 중 눈을 오래 감아도 아무 일 없음", same(s.names(), []) && s.c.state === IDLE, s.events);
+
+// 쿨다운 (앱에서 추가: 호출 후 30초, 취소·응답 없음 후 5초)
+class AppSim extends Sim { constructor() { super(); this.c = new CallController(undefined, COOLDOWN_APP); } }
+s = new AppSim().run(GAZE, 3.6).answerReady().run(GAZE, 3.6).announced().run(AWAY, 1).run(GAZE, 10);
+check("호출 후 30초 안에는 다시 바라봐도 질문 안 함", same(s.names(), ["ASK", "CALL"]) && s.c.state === COOLDOWN, s.events);
+s = new AppSim().run(GAZE, 3.6).answerReady().run(GAZE, 3.6).announced().run(AWAY, 31).run(GAZE, 3.6);
+check("호출 후 30초가 지나면 다시 질문", same(s.names(), ["ASK", "CALL", "READY", "ASK"]), s.events);
+s = new AppSim().run(GAZE, 3.6).answerReady().run(CLOSED, 3.6).announced().run(AWAY, 2).run(GAZE, 4);
+check("취소 후 5초 안에는 질문 안 함", same(s.names(), ["ASK", "CANCEL"]), s.events);
+s = new AppSim().run(GAZE, 3.6).answerReady().run(CLOSED, 3.6).announced().run(AWAY, 6).run(GAZE, 3.6);
+check("취소 후 5초가 지나면 다시 질문", same(s.names(), ["ASK", "CANCEL", "READY", "ASK"]), s.events);
+s = new AppSim().run(GAZE, 3.6).answerReady().run(GAZE, 3.6).announced().run(GAZE, 40);
+check("쿨다운이 끝나도 계속 쳐다보기만 하면 질문 안 함 (시선을 한 번 떼야 함)", same(s.names(), ["ASK", "CALL"]), s.events);
 
 // 판정·보정 (앱에서 추가된 부분)
 const f = { ear: 0.3, blink: 0.1, iris_h: 0.5, iris_v: -0.07, yaw: 0, pitch: 0 };

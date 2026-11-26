@@ -86,6 +86,7 @@ OpticCall/
 ├── scenario_test.py         # 시험 도구: 호출 · 취소 · 딴 데 보기(오호출) 시험과 결과표
 ├── webapp/                  # 휴대폰 앱 (웹앱, 홈 화면에 설치)
 │   ├── patient/             # 환자 앱: 홈 · 시선 추적 · 눈 맞추기 · 설정
+│   ├── nurse/               # 의료진 앱: 침상 상태 · 호출 알람 · 확인 보내기 · 오늘 기록
 │   ├── core/                # 판정 로직 (파이썬 features · call_controller를 옮김), 음성, 카메라
 │   └── test/                # 판정 로직 확인 페이지 (파이썬 테스트와 같은 경우 포함)
 ├── requirements.txt
@@ -146,7 +147,11 @@ python scenario_test.py --name 시험자A --note 안경
 python -m http.server 8765 --directory webapp
 ```
 Chrome에서 `http://localhost:8765/patient/` → [눈 맞추기] → [호출 대기 시작]. 판정 로직 확인: `http://localhost:8765/test/`
-휴대폰에서는 카메라 때문에 `https://` 주소가 필요하다 (GitHub Pages 등).
+의료진 앱은 `http://localhost:8765/nurse/` (지금은 같은 브라우저의 탭끼리 연결된다. 휴대폰 두 대 연결은 준비 중).
+환자 앱 설정에서 환자별 응시 시간과 호출 후 쉬는 시간(기본 30초)을 바꿀 수 있다.
+
+휴대폰에서는 카메라 때문에 `https://` 주소가 필요하다. GitHub Pages(ready 브랜치)를 켜면:
+`https://kyu-sw.github.io/KY_SW_PSY/webapp/patient/`, `https://kyu-sw.github.io/KY_SW_PSY/webapp/nurse/`
 
 **실행 파일(.exe) 만들기**
 ```bash

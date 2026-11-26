@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f3b4c">
+<title>OpticCall 간호사실</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="apple-touch-icon" href="../icons/icon-192.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="nurse.css">
+</head>
+<body>
+
+<!-- 시작 (알람 소리를 켜려면 한 번 눌러야 한다) -->
+<section id="start" class="start">
+  <img src="../icons/eye.png" alt="" class="start-logo">
+  <h1>OpticCall <span>간호사실</span></h1>
+  <p>환자가 눈으로 부르면 이 화면에 알람이 울려요.</p>
+  <label class="field">
+    <span>내 이름 (확인 버튼을 누르면 환자에게 전해져요)</span>
+    <input id="nurseName" type="text" maxlength="20" placeholder="예: 김간호">
+  </label>
+  <button class="btn primary huge" id="btnBegin">알람 켜고 시작</button>
+  <p class="muted small">소리·진동을 켜 두세요. 화면이 꺼지지 않게 유지해요.</p>
+</section>
+
+<!-- 메인 -->
+<main id="main" hidden>
+  <header class="top">
+    <div class="brand"><img src="../icons/eye.png" alt=""><b>OpticCall</b><span>간호사실</span></div>
+    <div class="top-right">
+      <span class="pill" id="conn">연결 확인 중</span>
+      <button class="btn ghost small" id="btnSound" aria-label="알람 소리">🔔 소리 켬</button>
+    </div>
+  </header>
+
+  <section class="stats">
+    <div class="stat"><span>지금 호출</span><b id="stActive">0</b></div>
+    <div class="stat"><span>오늘 호출</span><b id="stToday">0</b></div>
+    <div class="stat"><span>평균 확인 시간</span><b id="stAvg">-</b></div>
+  </section>
+
+  <h2 class="section-title">침상</h2>
+  <section class="beds" id="beds">
+    <div class="empty" id="bedsEmpty">
+      <b>아직 연결된 침상이 없어요</b>
+      <span>환자 휴대폰에서 OpticCall 환자 앱의 [호출 대기 시작]을 누르면 여기에 나타나요.</span>
+    </div>
+  </section>
+
+  <h2 class="section-title">오늘 기록</h2>
+  <section class="card">
+    <ul class="log" id="log"><li class="muted">아직 기록이 없어요</li></ul>
+  </section>
+  <p class="foot muted">나: <span id="me"></span> · <button class="link" id="btnRename">이름 바꾸기</button></p>
+</main>
+
+<!-- 호출 알람 (전체 화면) -->
+<div class="alarm" id="alarm" hidden>
+  <div class="alarm-ring">🚨</div>
+  <div class="alarm-kind" id="alarmKind">간호 호출</div>
+  <div class="alarm-bed" id="alarmBed">101호 1번 침상</div>
+  <div class="alarm-who" id="alarmWho">환자</div>
+  <div class="alarm-time" id="alarmTime">방금</div>
+  <button class="btn ack" id="btnAck">확인 · 지금 갈게요</button>
+  <button class="btn ghost small" id="btnLater">알람만 끄기</button>
+</div>
+
+<script type="module" src="nurse.js"></script>
+</body>
+</html>
