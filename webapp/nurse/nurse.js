@@ -1,5 +1,5 @@
 // OpticCall 간호사실 앱: 침상 상태 · 호출 알람 · 확인 보내기 · 오늘 기록
-import { createLink } from "../core/link.js";
+import { createLink, linkSettings, saveLinkSettings } from "../core/link.js";
 
 const $ = (id) => document.getElementById(id);
 const KEY = "opticcall.nurse.v1";
@@ -72,17 +72,28 @@ function bedOf(name) {
   return beds.get(name);
 }
 
-const link = createLink();
+let link = createLink();
+let linkState = link.state;
 
-link.onStatus((m) => {
+function wire() {
+  link.onState((s) => {
+    linkState = s;
+    render();
+  });
+  link.onStatus(onStatus);
+  link.onCall(onCall);
+  link.onAck(onAck);
+}
+
+function onStatus(m) {
   const b = bedOf(m.bed || "침상");
   b.patient = m.patient || b.patient;
-  b.lastSeen = Date.now();
+  b.lastSeen = Math.min(Date.now(), m.at || Date.now());   // 보낸 시각 기준 (예전 상태가 '연결됨'으로 보이지 않게)
   b.patientState = m.state;
   render();
-});
+}
 
-link.onCall((m) => {
+function onCall(m) {
   const b = bedOf(m.bed || "침상");
   b.patient = m.patient || b.patient;
   b.lastSeen = Date.now();
@@ -92,14 +103,15 @@ link.onCall((m) => {
   notify(b);
   showAlarm(b);
   render();
-});
+}
 
 // 다른 의료진 기기에서 먼저 확인한 경우도 반영한다
-link.onAck((m) => {
+function onAck(m) {
   for (const b of beds.values()) {
     if (b.state === "calling" && b.call?.id === m.id) markAcked(b, m.who, m.at, false);
   }
-});
+}
+wire();
 
 function markAcked(b, who, at = Date.now(), mine = true) {
   b.state = "acked";
@@ -221,8 +233,9 @@ function render() {
   }
 
   const conn = $("conn");
-  conn.textContent = link.kind === "none" ? "연결 안 됨" : online ? `침상 ${online}개 연결됨` : "침상 연결 기다리는 중";
-  conn.classList.toggle("on", online > 0);
+  const net = link.kind === "firebase" ? (linkState.online ? "" : linkState.error ? " · 서버 연결 안 됨" : " · 서버 연결 중") : " · 이 브라우저 안에서만";
+  conn.textContent = `병동 ${link.ward} · ${online ? `침상 ${online}개 연결됨` : "침상 기다리는 중"}${net}`;
+  conn.classList.toggle("on", online > 0 && (link.kind !== "firebase" || linkState.online));
 
   const today = new Date().toDateString();
   const todays = data.log.filter((l) => new Date(l.at).toDateString() === today);
@@ -252,9 +265,23 @@ function render() {
 
 // ── 시작 ─────────────────────────────────────
 let wakeLock = null;
+let watching = false;
 async function begin() {
   data.name = $("nurseName").value.trim() || data.name || "간호사";
   save();
+  const ward = $("ward").value.trim() || "ward1";
+  if (ward !== link.ward) {
+    saveLinkSettings({ ward });
+    link.close();
+    link = createLink();
+    beds.clear();
+    wire();
+    watching = false;
+  }
+  if (!watching) {
+    link.watchAll();
+    watching = true;
+  }
   try {
     audio = audio || new (window.AudioContext || window.webkitAudioContext)();
     await audio.resume();
@@ -276,6 +303,7 @@ async function begin() {
   render();
 }
 $("nurseName").value = data.name;
+$("ward").value = linkSettings().ward;
 $("btnBegin").addEventListener("click", begin);
 $("btnSound").addEventListener("click", () => {
   data.soundOn = !data.soundOn;

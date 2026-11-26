@@ -32,6 +32,7 @@
     <div class="chips">
       <span class="chip" id="chipCalib">눈 맞추기 안 함</span>
       <span class="chip" id="chipDwell">응시 3.5초</span>
+      <span class="chip" id="chipLink">의료진 연결 확인 중</span>
     </div>
   </div>
   <button class="btn primary huge" id="btnStart">
@@ -143,6 +144,8 @@
   <div class="card">
     <h2>침상</h2>
     <label class="field"><span>침상 이름 (의료진 알림에 표시)</span><input id="setBed" type="text" maxlength="30"></label>
+    <label class="field" style="margin-top:12px"><span>병동 코드 (의료진 앱과 같게 맞춰요)</span><input id="setWard" type="text" maxlength="30" autocapitalize="off"></label>
+    <p class="muted" style="margin:8px 0 0">환자 이름은 의료진 알림에 그대로 보여요. 시연할 때는 별명이나 이니셜을 써 주세요.</p>
   </div>
 
   <div class="card">

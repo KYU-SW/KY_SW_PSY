@@ -147,7 +147,8 @@ python scenario_test.py --name 시험자A --note 안경
 python -m http.server 8765 --directory webapp
 ```
 Chrome에서 `http://localhost:8765/patient/` → [눈 맞추기] → [호출 대기 시작]. 판정 로직 확인: `http://localhost:8765/test/`
-의료진 앱은 `http://localhost:8765/nurse/` (지금은 같은 브라우저의 탭끼리 연결된다. 휴대폰 두 대 연결은 준비 중).
+의료진 앱은 `http://localhost:8765/nurse/`. 환자 앱과 의료진 앱은 Firebase Realtime Database로 휴대폰끼리 연결된다
+(같은 브라우저의 탭끼리도 연결되어 노트북 한 대로 시연 가능). 두 앱의 **병동 코드**(기본 `ward1`)를 같게 맞춘다.
 환자 앱 설정에서 환자별 응시 시간과 호출 후 쉬는 시간(기본 30초)을 바꿀 수 있다.
 
 휴대폰에서는 카메라 때문에 `https://` 주소가 필요하다. GitHub Pages(ready 브랜치)를 켜면:

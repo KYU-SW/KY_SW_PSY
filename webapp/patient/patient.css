@@ -78,6 +78,7 @@ select, input[type="text"] {
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip { font-size: 13px; padding: 5px 10px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); color: var(--muted); }
 .chip.on { background: rgba(43, 179, 163, 0.12); border-color: rgba(43, 179, 163, 0.4); color: #138a7d; }
+.chip.bad { background: rgba(239, 91, 60, 0.1); border-color: rgba(239, 91, 60, 0.4); color: #d2472a; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .tile { flex-direction: column; align-items: flex-start; text-align: left; padding: 16px; border-radius: var(--radius); box-shadow: var(--shadow); }
 .tile svg { color: var(--teal); width: 28px; height: 28px; margin-bottom: 4px; }

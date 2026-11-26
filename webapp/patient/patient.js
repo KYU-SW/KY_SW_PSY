@@ -2,7 +2,7 @@
 import { Camera } from "../core/camera.js";
 import { CallController, COOLDOWN_APP, buildPhrases, secondsText, IDLE, ASKING, WAITING, COOLDOWN } from "../core/controller.js";
 import { FeatureExtractor, buildCalibration, rawFeatures } from "../core/features.js";
-import { createLink } from "../core/link.js";
+import { createLink, linkSettings, saveLinkSettings } from "../core/link.js";
 import { store } from "../core/store.js";
 import { Voice } from "../core/voice.js";
 
@@ -81,6 +81,20 @@ const voice = new Voice((tag, at) => session && session.onVoiceDone(tag, at));
 voice.rate = store.data.voiceRate;
 const link = createLink();
 link.onAck((m) => session && session.onAck(m));
+link.watchAcks();
+function showLinkState(s = link.state) {
+  const chip = $("chipLink");
+  if (!chip) return;
+  const ok = link.kind === "firebase" ? s.online : link.kind === "local";
+  chip.textContent = link.kind === "firebase"
+    ? `의료진 연결 ${s.online ? "됨" : s.error ? "안 됨" : "확인 중"} · 병동 ${link.ward}`
+    : `의료진 연결: 이 브라우저 안에서만 · 병동 ${link.ward}`;
+  chip.classList.toggle("on", ok);
+  chip.classList.toggle("bad", link.kind === "firebase" && !s.online && !!s.error);
+}
+link.onState(showLinkState);
+// 시작하자마자 연결을 확인한다 (침상 상태를 한 번 보낸다)
+link.sendStatus({ bed: store.data.bed, patient: store.data.current, state: "HOME" });
 
 let wakeLock = null;
 async function keepAwake(on) {
@@ -483,6 +497,7 @@ function renderSettings() {
   rate.querySelector(".val").textContent = `${store.data.voiceRate.toFixed(1)}배`;
   $("setShowCam").checked = store.data.showCamera;
   $("setReadout").checked = !!store.data.showReadout;
+  $("setWard").value = linkSettings().ward;
   const cd = $("cooldownSlider");
   cd.querySelector("input").value = store.data.callCooldownSec ?? 30;
   cd.querySelector(".val").textContent = `${store.data.callCooldownSec ?? 30}초`;
@@ -498,6 +513,13 @@ $("btnSettings").addEventListener("click", () => {
 $("btnSetBack").addEventListener("click", () => {
   show("home");
   renderHome();
+});
+$("setWard").addEventListener("change", (e) => {
+  const ward = e.target.value.trim() || "ward1";
+  if (ward === linkSettings().ward) return;
+  saveLinkSettings({ ward });
+  toast("병동 코드를 바꿨어요. 다시 연결할게요");
+  setTimeout(() => location.reload(), 900);
 });
 $("setBed").addEventListener("change", (e) => {
   store.data.bed = e.target.value.trim() || "침상";
@@ -582,3 +604,4 @@ $("btnCalibReset").addEventListener("click", () => {
 });
 
 renderHome();
+showLinkState();
