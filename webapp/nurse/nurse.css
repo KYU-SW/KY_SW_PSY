@@ -105,3 +105,18 @@ main { max-width: 1100px; margin: 0 auto; padding: max(14px, env(safe-area-inset
 .alarm-time { font-size: 18px; opacity: 0.85; font-variant-numeric: tabular-nums; }
 .btn.ack { margin-top: 18px; font-size: 24px; padding: 22px 34px; border-radius: 22px; border: 0; background: #fff; color: #c33a1f; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25); min-width: min(100%, 360px); }
 .alarm .btn.ghost { color: #fff; border-color: rgba(255, 255, 255, 0.5); }
+.alarm { overflow-y: auto; justify-content: flex-start; padding-top: max(28px, env(safe-area-inset-top)); }
+.alarm > :first-child { margin-top: auto; }
+.alarm > :last-child { margin-bottom: auto; }
+.alarm.urgent { background: radial-gradient(120% 90% at 50% 20%, #ff4d6d 0%, #c8102e 55%, #7a0618 100%); animation-duration: 0.55s; }
+.alarm.urgent .alarm-kind { background: #fff; color: #c8102e; }
+.alarm-count { font-size: 16px; font-weight: 800; letter-spacing: 0.02em; opacity: 0.95; }
+.alarm-list { list-style: none; margin: 14px 0 4px; padding: 0; width: min(100%, 440px); display: flex; flex-direction: column; gap: 8px; }
+.alarm-list li { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 12px; text-align: left; padding: 10px 12px 10px 14px; border-radius: 14px; background: rgba(0, 0, 0, 0.22); }
+.alarm-list li.recall { background: rgba(255, 255, 255, 0.95); color: #b0102a; }
+.alarm-list .q-main { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; word-break: keep-all; }
+.alarm-list .q-main b { font-size: 18px; }
+.alarm-list .q-main span { font-size: 14px; font-weight: 700; opacity: 0.9; }
+.alarm-list .q-sub { grid-column: 1; font-size: 13px; opacity: 0.85; font-variant-numeric: tabular-nums; }
+.alarm-list .q-ack { grid-column: 2; grid-row: 1 / span 2; border: 0; border-radius: 12px; padding: 10px 16px; font-weight: 800; background: #fff; color: #c33a1f; }
+.alarm-list li.recall .q-ack { background: #c8102e; color: #fff; }

@@ -63,12 +63,14 @@
 
 <!-- 호출 알람 (전체 화면) -->
 <div class="alarm" id="alarm" hidden>
+  <div class="alarm-count" id="alarmCount">간호 호출</div>
   <div class="alarm-ring">🚨</div>
-  <div class="alarm-kind" id="alarmKind">간호 호출</div>
+  <div class="alarm-kind" id="alarmKind">새 호출</div>
   <div class="alarm-bed" id="alarmBed">101호 1번 침상</div>
   <div class="alarm-who" id="alarmWho">환자</div>
   <div class="alarm-time" id="alarmTime">방금</div>
   <button class="btn ack" id="btnAck">확인 · 지금 갈게요</button>
+  <ul class="alarm-list" id="alarmList" hidden></ul>
   <button class="btn ghost small" id="btnLater">알람만 끄기</button>
 </div>
 
