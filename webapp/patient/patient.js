@@ -627,3 +627,13 @@ $("btnCalibReset").addEventListener("click", () => {
 
 renderHome();
 showLinkState();
+
+// 가로로 돌렸을 때 앞면 카메라가 어느 쪽에 있는지 (표적을 카메라 쪽에 두려고)
+// 반시계로 돌리면(90°) 카메라가 왼쪽, 시계로 돌리면(270°) 오른쪽
+function updateCamSide() {
+  const angle = screen.orientation?.angle ?? window.orientation ?? 0;
+  document.body.dataset.camSide = angle === 90 ? "left" : "right";
+}
+updateCamSide();
+screen.orientation?.addEventListener?.("change", updateCamSide);
+window.addEventListener("orientationchange", updateCamSide);

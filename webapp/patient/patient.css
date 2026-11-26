@@ -166,3 +166,29 @@ input[type="range"] { width: 100%; margin-top: 10px; accent-color: var(--teal); 
   position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 9;
   background: rgba(18, 35, 43, 0.92); color: #fff; padding: 12px 18px; border-radius: 14px; font-size: 15px; max-width: calc(100% - 32px);
 }
+
+/* 가로 화면: 카메라를 크게, 표적과 안내는 앞면 카메라가 있는 쪽에 둔다
+   (body[data-cam-side]는 patient.js가 화면 방향을 보고 정한다) */
+@media (orientation: landscape) and (min-aspect-ratio: 5/4) {
+  #track.view.active {
+    display: grid; align-items: center; justify-items: center; column-gap: 24px; row-gap: 8px;
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 38%);
+    grid-template-rows: 1fr auto auto 1fr auto;
+    grid-template-areas: "cam ." "cam target" "cam status" "cam readout" "cam foot";
+    height: 100dvh; padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+  body[data-cam-side="left"] #track.view.active {
+    grid-template-columns: minmax(240px, 38%) minmax(0, 1fr);
+    grid-template-areas: ". cam" "target cam" "status cam" "readout cam" "foot cam";
+  }
+  #track .cam { grid-area: cam; width: 100%; height: 100%; max-height: none; aspect-ratio: auto; align-self: stretch; }
+  #track .target-wrap { grid-area: target; width: 120px; height: 120px; margin: 0; }
+  #track .target-eye { inset: 20px; }
+  #track .target-eye svg { width: 46px; height: 46px; }
+  #track .status { grid-area: status; margin-top: 22px; min-height: 0; }
+  #track .headline { font-size: clamp(22px, 3.2vw, 32px); }
+  #track .sub { font-size: clamp(15px, 2vw, 19px); }
+  #track .readout { grid-area: readout; align-self: start; margin-top: 4px; font-size: 12px; }
+  #track .track-foot { grid-area: foot; width: 100%; margin-top: 0; flex-wrap: wrap; justify-content: center; }
+  .small-cam { max-height: 45dvh; }
+}
