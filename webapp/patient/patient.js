@@ -245,7 +245,7 @@ class Session {
         : "휴대폰 화면 쪽으로 얼굴을 돌려 주세요";
     } else if (c.state === IDLE) {
       head = p.value > 0 ? `조금만 더 바라보세요` : "부르고 싶으면 바라보세요";
-      sub = p.value > 0 ? `${Math.max(0, d.first_gaze_sec * (1 - p.value)).toFixed(1)}초 남았어요` : `위의 눈 모양을 ${secondsText(d.first_gaze_sec)} 보면 호출할지 물어봐요`;
+      sub = p.value > 0 ? `${Math.max(0, d.first_gaze_sec * (1 - p.value)).toFixed(1)}초 남았어요` : `눈 모양을 ${secondsText(d.first_gaze_sec)} 보면 호출할지 물어봐요`;
     } else if (c.state === ASKING) {
       head = "호출할까요?";
       sub = p.kind === "close" ? "눈을 계속 감고 있으면 취소돼요" : "질문을 듣고 대답해 주세요";
@@ -455,7 +455,7 @@ async function runCalib() {
   setStep(1);
   $("calHead").textContent = "눈만 돌려 눈 모양을 바라보세요";
   $("calSub").textContent = "고개는 그대로 두고, 링이 다 줄어들 때까지 계속 바라봐 주세요";
-  await sayAndWait("고개는 그대로 두고, 눈만 돌려 화면 위쪽의 눈 모양을 바라봐 주세요.");
+  await sayAndWait("고개는 그대로 두고, 눈만 돌려 카메라 옆의 눈 모양을 바라봐 주세요.");
   const look = await collect(3, "calRing", (f) => f.blink < 0.5);
   if (!calibRunning) return;
   setStep(2);
