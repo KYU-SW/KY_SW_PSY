@@ -9,7 +9,7 @@
 <link rel="icon" href="../icons/icon-192.png">
 <link rel="apple-touch-icon" href="../icons/icon-192.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.min.css">
-<link rel="stylesheet" href="patient.css?v=20261126b">
+<link rel="stylesheet" href="patient.css?v=20261126h">
 </head>
 <body>
 
@@ -27,9 +27,10 @@
     <div class="big" id="homeBed">101호 1번 침상</div>
     <div class="row patient-row">
       <span class="muted">환자</span>
-      <select id="homePatient" aria-label="환자 선택"></select>
+      <b id="homePatient"></b>
     </div>
     <div class="chips">
+      <span class="chip bad" id="chipBed" hidden></span>
       <span class="chip" id="chipCalib">눈 맞추기 안 함</span>
       <span class="chip" id="chipDwell">응시 3.5초</span>
       <span class="chip" id="chipLink">의료진 연결 확인 중</span>
@@ -143,21 +144,15 @@
 
   <div class="card">
     <h2>침상</h2>
-    <label class="field"><span>침상 이름 (의료진 알림에 표시)</span><input id="setBed" type="text" maxlength="30"></label>
-    <label class="field" style="margin-top:12px"><span>병동 코드 (의료진 앱과 같게 맞춰요)</span><input id="setWard" type="text" maxlength="30" autocapitalize="off"></label>
-    <p class="muted" style="margin:8px 0 0">환자 이름은 의료진 알림에 그대로 보여요. 시연할 때는 별명이나 이니셜을 써 주세요.</p>
-  </div>
-
-  <div class="card">
-    <h2>환자</h2>
-    <div class="row">
-      <select id="setPatient" aria-label="환자"></select>
-      <button class="btn ghost small" id="btnDelPatient">삭제</button>
-    </div>
+    <div class="pair-now" id="pairNow"></div>
+    <label class="field" style="margin-top:10px"><span>연결 코드 (간호사 앱 [침상 관리]에 있는 4자리)</span></label>
     <div class="row add">
-      <input id="newPatient" type="text" placeholder="새 환자 이름" maxlength="20">
-      <button class="btn small" id="btnAddPatient">추가</button>
+      <input id="setCode" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="예: 4827" autocomplete="off">
+      <button class="btn small" id="btnPair">연결</button>
     </div>
+    <p class="muted" id="setBedInfo" style="margin:6px 0 0"></p>
+    <label class="field" style="margin-top:12px"><span>병동 코드 (의료진 앱과 같게 맞춰요)</span><input id="setWard" type="text" maxlength="30" autocapitalize="off"></label>
+    <p class="muted" style="margin:8px 0 0">침상과 환자는 간호사 앱에서 등록해요. 한 번 연결하면 환자가 바뀌어도 이 휴대폰이 자동으로 새 환자로 바뀌어요.</p>
   </div>
 
   <div class="card">
@@ -217,6 +212,6 @@
 </section>
 
 <div class="toast" id="toast" hidden></div>
-<script type="module" src="patient.js?v=20261126b"></script>
+<script type="module" src="patient.js?v=20261126h"></script>
 </body>
 </html>

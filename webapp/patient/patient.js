@@ -2,8 +2,8 @@
 import { Camera } from "../core/camera.js";
 import { CallController, COOLDOWN_APP, buildPhrases, secondsText, IDLE, ASKING, WAITING, COOLDOWN } from "../core/controller.js";
 import { FeatureExtractor, buildCalibration, rawFeatures } from "../core/features.js";
-import { createLink, linkSettings, saveLinkSettings } from "../core/link.js";
-import { store } from "../core/store.js";
+import { cleanKey, createLink, deviceId, linkSettings, saveLinkSettings } from "../core/link.js?v=20261126h";
+import { store } from "../core/store.js?v=20261126h";
 import { Voice } from "../core/voice.js";
 
 const $ = (id) => document.getElementById(id);
@@ -36,19 +36,50 @@ function timeText(ms) {
 }
 
 // ── 홈 ───────────────────────────────────────
-function fillPatientSelect(sel) {
-  sel.innerHTML = "";
-  for (const name of Object.keys(store.data.patients)) {
-    const o = document.createElement("option");
-    o.value = o.textContent = name;
-    o.selected = name === store.data.current;
-    sel.appendChild(o);
+// ── 간호사 앱에 등록된 침상 ───────────────────
+let roster = null;                 // null: 아직 못 받음 (인터넷 안 됨 등)
+let bedStates = {};                // 침상별 최근 상태 (다른 휴대폰이 쓰는지 확인)
+const myReg = () => (roster && store.data.bed ? roster[cleanKey(store.data.bed)] : undefined);
+// 연결 코드가 지금도 맞는지 (간호사가 [새 코드]를 누르면 끊긴다)
+const paired = () => !!(myReg() && myReg().code && myReg().code === store.data.pairCode);
+// 지금 환자 이름: 간호사가 등록한 이름 (빈 침상이면 "")
+const currentPatient = () => (paired() ? myReg().patient : store.data.current);
+// 다른 휴대폰이 최근(15초) 이 침상을 쓰고 있는지
+function usedByOther(bed) {
+  const s = bedStates[cleanKey(bed)];
+  return !!(s && s.device && s.device !== deviceId() && Date.now() - (s.at || 0) < 15000);
+}
+// 침상 등록 문제 (없으면 "")
+function bedProblem() {
+  if (!store.data.bed) return "침상 연결 안 됨 · 설정에서 연결 코드를 넣어 주세요";
+  if (roster && !myReg()) return "간호사 앱에서 지워진 침상";
+  if (roster && !paired()) return "연결 코드가 바뀌었어요 · 새 코드를 넣어 주세요";
+  if (myReg() && !myReg().patient) return "빈 침상 (환자 없음)";
+  if (usedByOther(store.data.bed)) return "다른 휴대폰도 이 침상 사용 중";
+  return "";
+}
+function onRoster(r) {
+  roster = r || {};
+  const reg = paired() ? myReg() : null;
+  // 간호사가 이 침상의 환자를 바꾸면 따라 바꾼다 (응시 시간·눈 맞추기는 환자마다 따로)
+  if (reg && reg.patient && reg.patient !== store.data.current) {
+    const isNew = !store.data.patients[reg.patient];
+    store.addPatient(reg.patient);
+    toast(`환자가 ${reg.patient} 님으로 바뀌었어요${isNew ? ". 눈 맞추기를 해 주세요" : ""}`);
   }
+  refresh();
+}
+function refresh() {
+  if ($("home").classList.contains("active")) renderHome();
+  if ($("settings").classList.contains("active")) fillBedSelect();
 }
 
 function renderHome() {
-  $("homeBed").textContent = store.data.bed;
-  fillPatientSelect($("homePatient"));
+  $("homeBed").textContent = store.data.bed || "침상 연결 안 됨";
+  $("homePatient").textContent = currentPatient() || "없음";
+  const problem = bedProblem();
+  $("chipBed").hidden = !problem;
+  $("chipBed").textContent = problem;
   const p = store.patient;
   $("chipCalib").textContent = p.calib ? "눈 맞추기 완료" : "눈 맞추기 안 함 (공통 기준)";
   $("chipCalib").classList.toggle("on", !!p.calib);
@@ -70,11 +101,6 @@ function renderHome() {
   if (!items.length) ul.innerHTML = '<li><span class="muted">오늘은 아직 기록이 없어요</span></li>';
 }
 
-$("homePatient").addEventListener("change", (e) => {
-  store.data.current = e.target.value;
-  store.save();
-  renderHome();
-});
 
 // ── 음성 · 연결 ───────────────────────────────
 const voice = new Voice((tag, at) => session && session.onVoiceDone(tag, at));
@@ -82,6 +108,19 @@ voice.rate = store.data.voiceRate;
 const link = createLink();
 link.onAck((m) => session && session.onAck(m));
 link.watchAcks();
+link.watchRoster(onRoster, { live: false });     // 같은 브라우저 안(인터넷 없이) 시연용
+// 등록 목록(환자 바뀜)과 같은 침상을 쓰는 다른 휴대폰: 설정을 열 때와 10초마다 한 번씩 읽는다
+// (실시간 연결은 '간호사 확인' 하나만 열어 둔다)
+async function checkBeds() {
+  const [r, b] = await Promise.all([link.readRoster(), link.readBeds()]);
+  bedStates = b;
+  if (r) onRoster(r);
+  else refresh();
+}
+checkBeds();
+setInterval(() => {
+  if (!document.hidden) checkBeds();
+}, 10000);
 function showLinkState(s = link.state) {
   const chip = $("chipLink");
   if (!chip) return;
@@ -94,7 +133,7 @@ function showLinkState(s = link.state) {
 }
 link.onState(showLinkState);
 // 시작하자마자 연결을 확인한다 (침상 상태를 한 번 보낸다)
-link.sendStatus({ bed: store.data.bed, patient: store.data.current, state: "HOME" });
+if (store.data.bed) link.sendStatus({ bed: store.data.bed, patient: currentPatient(), state: "HOME" });
 
 let wakeLock = null;
 async function keepAwake(on) {
@@ -171,7 +210,7 @@ class Session {
     if (ev === "CALL") {
       this.callCount = this.callAt && Date.now() - this.callAt < 300000 ? this.callCount + 1 : 1;
       this.callAt = Date.now();
-      this.callId = link.sendCall({ bed: store.data.bed, patient: store.data.current, count: this.callCount });
+      this.callId = link.sendCall({ bed: store.data.bed || "침상 미선택", patient: currentPatient(), count: this.callCount });
       this.showCard("call", "간호사를 불렀어요", this.callCount > 1 ? `다시 불렀어요 (${this.callCount}번째)` : "잠시만 기다려 주세요", "🔔");
     } else if (ev === "CANCEL") {
       this.showCard("cancel", "호출을 취소했어요", "필요하면 언제든 다시 바라보세요", "↩️", 3500);
@@ -203,7 +242,7 @@ class Session {
     // 의료진 앱에 '이 침상 앱이 켜져 있다'를 알린다 (3초마다)
     if (Date.now() - (this.lastStatus || 0) > 3000) {
       this.lastStatus = Date.now();
-      link.sendStatus({ bed: store.data.bed, patient: store.data.current, state: this.controller.state });
+      if (store.data.bed) link.sendStatus({ bed: store.data.bed, patient: currentPatient(), state: this.controller.state });
     }
     const r = camera.detect();
     if (r !== undefined) {
@@ -350,11 +389,18 @@ class Session {
 }
 
 async function startTracking() {
+  // 침상을 고르지 않았으면 먼저 고르게 한다 (등록 문제는 경고만 하고 시작은 막지 않음: 응급일 수 있음)
+  if (!store.data.bed) {
+    toast("설정에서 간호사 앱의 연결 코드를 먼저 넣어 주세요");
+    renderSettings();
+    show("settings");
+    return;
+  }
   voice.unlock();
   show("track");
   $("callCard").hidden = true;
   $("camBox").classList.toggle("hidden-cam", !store.data.showCamera);
-  $("trackWho").textContent = `${store.data.bed} · ${store.data.current}`;
+  $("trackWho").textContent = `${store.data.bed} · ${currentPatient() || "환자 없음"}`;
   $("headline").textContent = "카메라를 준비하고 있어요";
   $("sub").textContent = "처음에는 10초쯤 걸릴 수 있어요";
   camera.video = $("video");
@@ -480,7 +526,7 @@ async function runCalib() {
   setStep(3);
   voice.say("눈을 떠 주세요. 눈 맞추기가 끝났습니다.");
   $("calHead").textContent = "눈 맞추기 완료";
-  $("calSub").textContent = `${store.data.current} 님 기준으로 저장했어요`;
+  $("calSub").textContent = `${currentPatient() || store.data.current} 님 기준으로 저장했어요`;
   $("btnCalGo").hidden = false;
   $("btnCalGo").textContent = "호출 대기 시작";
   $("btnCalGo").dataset.next = "track";
@@ -506,9 +552,8 @@ $("btnCalBack").addEventListener("click", () => {
 
 // ── 설정 ─────────────────────────────────────
 function renderSettings() {
-  $("setBed").value = store.data.bed;
-  fillPatientSelect($("setPatient"));
-  $("dwellFor").textContent = `· ${store.data.current}`;
+  fillBedSelect();
+  $("dwellFor").textContent = `· ${currentPatient() || store.data.current}`;
   document.querySelectorAll(".slider[data-key]").forEach((s) => {
     const v = store.patient.dwell[s.dataset.key];
     s.querySelector("input").value = v;
@@ -530,6 +575,7 @@ function renderSettings() {
 
 $("btnSettings").addEventListener("click", () => {
   renderSettings();
+  checkBeds();
   show("settings");
 });
 $("btnSetBack").addEventListener("click", () => {
@@ -543,29 +589,42 @@ $("setWard").addEventListener("change", (e) => {
   toast("병동 코드를 바꿨어요. 다시 연결할게요");
   setTimeout(() => location.reload(), 900);
 });
-$("setBed").addEventListener("change", (e) => {
-  store.data.bed = e.target.value.trim() || "침상";
-  store.save();
-});
-$("setPatient").addEventListener("change", (e) => {
-  store.data.current = e.target.value;
-  store.save();
-  renderSettings();
-});
-$("btnAddPatient").addEventListener("click", () => {
-  const name = $("newPatient").value;
-  if (store.addPatient(name)) {
-    $("newPatient").value = "";
-    renderSettings();
-    toast(`${name.trim()} 님을 추가했어요`);
+// 침상 연결: 간호사 앱이 알려 준 4자리 연결 코드로
+function fillBedSelect() {
+  const now = $("pairNow");
+  if (store.data.bed) {
+    now.innerHTML = '<div class="muted">지금 연결된 침상</div><b></b><div></div>';
+    now.children[1].textContent = store.data.bed;
+    now.children[2].textContent = `환자: ${currentPatient() || "없음"}${store.data.pairCode ? ` · 코드 ${store.data.pairCode}` : ""}`;
+  } else {
+    now.innerHTML = '<b>아직 침상에 연결하지 않았어요</b><div class="muted">간호사 앱 [침상 관리]에서 침상을 등록하면 연결 코드가 나와요.</div>';
   }
-});
-$("btnDelPatient").addEventListener("click", () => {
-  const name = store.data.current;
-  if (!store.removePatient(name)) return toast("환자는 한 명 이상 있어야 해요");
+  const info = $("setBedInfo");
+  const problem = store.data.bed ? bedProblem() : "";
+  info.textContent = problem ? `⚠ ${problem}` : roster === null && link.kind === "firebase" ? "등록 목록을 불러오는 중…" : "";
+  info.style.color = problem ? "var(--call)" : "";
+}
+async function pairWithCode() {
+  const code = $("setCode").value.trim();
+  if (!/^\d{4}$/.test(code)) return toast("4자리 숫자를 넣어 주세요");
+  const fresh = await link.readRoster();          // 방금 만든 코드도 바로 찾을 수 있게 새로 읽는다
+  if (fresh) roster = fresh;
+  const e = Object.values(roster || {}).find((x) => x?.code === code);
+  if (!e) return toast("맞는 침상이 없어요. 코드와 병동 코드를 확인해 주세요");
+  bedStates = await link.readBeds();
+  if (e.bed !== store.data.bed && usedByOther(e.bed) && !confirm(`${e.bed}은(는) 다른 휴대폰이 쓰고 있어요. 그래도 이 휴대폰으로 연결할까요?`)) return;
+  store.data.bed = e.bed;
+  store.data.pairCode = code;
+  if (e.patient) store.addPatient(e.patient);
+  store.save();
+  $("setCode").value = "";
+  $("setCode").blur();
+  link.sendStatus({ bed: e.bed, patient: currentPatient(), state: "HOME" });
   renderSettings();
-  toast(`${name} 님을 지웠어요`);
-});
+  toast(`${e.bed}${e.patient ? ` · ${e.patient} 님` : ""}으로 연결했어요`);
+}
+$("btnPair").addEventListener("click", pairWithCode);
+$("setCode").addEventListener("keydown", (ev) => ev.key === "Enter" && pairWithCode());
 document.querySelectorAll(".slider[data-key] input").forEach((input) => {
   input.addEventListener("input", () => {
     const s = input.closest(".slider");

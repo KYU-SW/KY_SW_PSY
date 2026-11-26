@@ -6,9 +6,11 @@
 // 주고받는 메시지
 //   call   환자 → 의료진  { id, bed, patient, count, at }        호출 확정
 //   ack    의료진 → 환자  { id, who, at }                        [확인]을 누름
-//   status 환자 → 의료진  { bed, patient, state, at }             몇 초마다: 앱이 켜져 있는지, 지금 상태
+//   status 환자 → 의료진  { bed, patient, state, device, at }     몇 초마다: 앱이 켜져 있는지, 지금 상태
+//   roster 의료진 → 모두  { bed, patient, code, at }              침상 등록 (patient가 빈 문자열이면 빈 침상,
+//                                                                code는 환자 휴대폰을 그 침상에 연결하는 4자리 숫자)
 //
-// Firebase 안의 위치: opticcall/{병동 코드}/calls/{id}, opticcall/{병동 코드}/beds/{침상 키}
+// Firebase 안의 위치: opticcall/{병동 코드}/calls/{id}, /beds/{침상 키}, /roster/{침상 키}
 export const DB_URL = "https://opticcall-1570c-default-rtdb.asia-southeast1.firebasedatabase.app";
 const LINK_KEY = "opticcall.link.v1";
 const RECENT_MS = 10 * 60 * 1000;          // 의료진 앱을 켰을 때 이보다 최근의 미확인 호출만 알람
@@ -28,7 +30,17 @@ export function saveLinkSettings(s) {
   }
 }
 
-const cleanKey = (s) => String(s || "침상").replace(/[.#$\[\]\/]/g, "_").slice(0, 60);
+export const cleanKey = (s) => String(s || "침상").replace(/[.#$\[\]\/]/g, "_").slice(0, 60);
+// 이 휴대폰을 구별하는 값 (같은 침상을 두 휴대폰이 쓰는지 알아보려고)
+export function deviceId() {
+  try {
+    let id = localStorage.getItem("opticcall.device");
+    if (!id) localStorage.setItem("opticcall.device", (id = Math.random().toString(36).slice(2, 10)));
+    return id;
+  } catch {
+    return "nostore";
+  }
+}
 const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
 // 실시간 스트림의 put/patch를 받아 로컬 사본에 반영한다
@@ -137,7 +149,75 @@ export function createLink(options = {}) {
     sendStatus(info) {
       const m = { type: "status", at: Date.now(), ...info };
       local(m);
-      if (remote) put(`beds/${cleanKey(info.bed)}`, { bed: info.bed || "", patient: info.patient || "", state: info.state || "", at: m.at });
+      if (remote) put(`beds/${cleanKey(info.bed)}`, { bed: info.bed || "", patient: info.patient || "", state: info.state || "", device: deviceId(), at: m.at });
+    },
+
+    // 침상 등록 (의료진 앱). patient가 ""이면 빈 침상(퇴원)
+    // 저장되면 이 기기 목록에도 바로 반영한다 (같은 탭에는 BroadcastChannel이 돌아오지 않음)
+    async setRoster(bed, patient, code) {
+      const m = { type: "roster", bed, patient: patient || "", code: code || "", at: Date.now() };
+      const ok = remote ? await put(`roster/${cleanKey(bed)}`, { bed, patient: m.patient, code: m.code, at: m.at }) : true;
+      if (ok) {
+        local(m);
+        emit("roster", m);
+      }
+      return ok;
+    },
+    async removeRoster(bed) {
+      const m = { type: "roster", bed, removed: true, at: Date.now() };
+      const ok = remote
+        ? await fetch(`${base}/roster/${cleanKey(bed)}.json`, { method: "DELETE" }).then((r) => r.ok).catch(() => false)
+        : true;
+      if (ok) {
+        local(m);
+        emit("roster", m);
+      }
+      return ok;
+    },
+    // 등록된 침상 목록이 바뀔 때마다 { 침상키: { bed, patient, at } } 전체를 넘긴다
+    // live: false면 Firebase 실시간 연결을 열지 않는다 (환자 앱은 readRoster로 가끔 읽음)
+    watchRoster(cb, { live = true } = {}) {
+      let roster = {};
+      on("roster", (m) => {
+        roster = { ...roster };
+        if (m.removed) delete roster[cleanKey(m.bed)];
+        else roster[cleanKey(m.bed)] = { bed: m.bed, patient: m.patient, code: m.code || "", at: m.at };
+        cb(roster);
+      });
+      // 같은 브라우저 안에서 나중에 연 탭이 목록을 달라고 하면 알려 준다 (인터넷 없이 시연할 때)
+      on("roster-request", () => Object.values(roster).forEach((e) => local({ type: "roster", ...e })));
+      if (!remote) {
+        cb(roster);                            // 빈 목록에서 시작하고, 다른 탭에 목록을 달라고 한다
+        local({ type: "roster-request" });
+      }
+      if (live) {
+        listen("roster", "", (data) => {
+          roster = data || {};
+          cb(roster);
+        });
+      }
+    },
+    // 등록된 침상 목록을 한 번 읽는다 (못 읽으면 null)
+    async readRoster() {
+      if (!remote) return null;
+      try {
+        const r = await fetch(`${base}/roster.json`);
+        return r.ok ? (await r.json()) || {} : null;
+      } catch {
+        return null;
+      }
+    },
+    // 침상 상태 전체를 한 번 읽는다 (환자 앱: 같은 침상을 다른 휴대폰이 쓰는지 확인).
+    // 환자 앱이 실시간 연결을 여러 개 열지 않는 이유: 브라우저는 한 서버에 연결을 6개까지만 열어 두므로,
+    // 노트북 한 대에 두 앱을 띄워 시연할 때 연결이 모자라 호출 전송이 멈출 수 있다.
+    async readBeds() {
+      if (!remote) return {};
+      try {
+        const r = await fetch(`${base}/beds.json`);
+        return r.ok ? (await r.json()) || {} : {};
+      } catch {
+        return {};
+      }
     },
 
     // 환자 앱: 내가 보낸 호출의 '확인'만 기다린다

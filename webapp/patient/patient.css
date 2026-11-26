@@ -203,3 +203,8 @@ input[type="range"] { width: 100%; margin-top: 10px; accent-color: var(--teal); 
 }
 /* 어두운 화면일 때 화면 밖(아이폰 가로의 노치 쪽 여백 등)도 어둡게 */
 html:has(.view.dark.active), body:has(.view.dark.active) { background: #071a22; }
+
+/* 침상 연결 */
+.pair-now { padding: 12px 14px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); line-height: 1.5; }
+.pair-now b { font-size: 18px; }
+#setCode { font-size: 22px; letter-spacing: 0.3em; text-align: center; font-variant-numeric: tabular-nums; }

@@ -3,7 +3,8 @@ import { DWELL_DEFAULTS, DWELL_MAX_SEC, DWELL_MIN_SEC, DWELL_STEP_SEC } from "./
 
 const KEY = "opticcall.patient.v1";
 const DEFAULT = {
-  bed: "101호 1번 침상",
+  bed: "",                      // 간호사 앱이 알려 준 연결 코드로 정한다
+  pairCode: "",
   current: "기본",
   patients: { 기본: { dwell: { ...DWELL_DEFAULTS }, calib: null } },
   voiceRate: 1.0,

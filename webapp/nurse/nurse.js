@@ -1,5 +1,5 @@
 // OpticCall 간호사실 앱: 침상 상태 · 호출 알람 · 확인 보내기 · 오늘 기록
-import { createLink, linkSettings, saveLinkSettings } from "../core/link.js";
+import { cleanKey, createLink, linkSettings, saveLinkSettings } from "../core/link.js?v=20261126h";
 
 const $ = (id) => document.getElementById(id);
 const KEY = "opticcall.nurse.v1";
@@ -79,6 +79,22 @@ function bedOf(name) {
   return beds.get(name);
 }
 
+// ── 등록된 침상 (침상 관리) ─────────────────────
+let roster = {};                          // { 침상키: { bed, patient, at } }
+const regOf = (bed) => roster[cleanKey(bed)];
+// 환자 이름은 간호사가 등록한 것을 우선한다 (환자 휴대폰에서 보낸 이름보다)
+const patientOf = (b) => (regOf(b.bed) ? regOf(b.bed).patient : b.patient);
+function onRoster(r) {
+  roster = r || {};
+  for (const e of Object.values(roster)) if (e?.bed) bedOf(e.bed);
+  // 지운 침상: 호출 중이 아니고 연결도 끊긴 카드는 치운다
+  for (const [name, b] of beds) {
+    if (!regOf(name) && b.state === "idle" && Date.now() - b.lastSeen > OFFLINE_SEC * 1000) beds.delete(name);
+  }
+  renderRoster();
+  render();
+}
+
 let link = createLink();
 let linkState = link.state;
 
@@ -109,7 +125,8 @@ function onCall(m) {
   b.firstAt = b.state === "calling" && b.firstAt ? Math.min(b.firstAt, at) : at;
   b.state = "calling";
   b.call = { id: m.id, at, count: m.count || 1 };
-  addLog("call", b.bed, `${b.patient ? b.patient + " · " : ""}${b.call.count > 1 ? `재호출 (${b.call.count}번째)` : "호출"}`);
+  const who = patientOf(b);
+  addLog("call", b.bed, `${regOf(b.bed) ? "" : "미등록 침상 · "}${who ? who + " · " : ""}${b.call.count > 1 ? `재호출 (${b.call.count}번째)` : "호출"}`);
   notify(b);
   render();
 }
@@ -136,7 +153,7 @@ function notify(b) {
   // 앱이 뒤에 있을 때를 위한 알림 (허용한 경우만)
   try {
     if (document.hidden && "Notification" in window && Notification.permission === "granted") {
-      new Notification(`🚨 ${b.bed} 호출`, { body: b.patient ? `${b.patient} 님이 부르고 있어요` : "환자가 부르고 있어요", tag: b.call.id, requireInteraction: true });
+      new Notification(`🚨 ${b.bed} 호출`, { body: patientOf(b) ? `${patientOf(b)} 님이 부르고 있어요` : "환자가 부르고 있어요", tag: b.call.id, requireInteraction: true });
     }
   } catch {
     /* 알림을 지원하지 않는 브라우저 */
@@ -173,7 +190,8 @@ function renderAlarm() {
   $("alarmCount").textContent = list.length > 1 ? `호출 ${list.length}건 대기 중` : "간호 호출";
   $("alarmKind").textContent = top.call.count > 1 ? `재호출 · ${top.call.count}번째` : list.length > 1 ? "가장 오래 기다린 호출" : "새 호출";
   $("alarmBed").textContent = top.bed;
-  $("alarmWho").textContent = top.patient ? `${top.patient} 님이 부르고 있어요` : "환자가 부르고 있어요";
+  const topWho = patientOf(top);
+  $("alarmWho").textContent = `${topWho ? `${topWho} 님이 부르고 있어요` : "환자가 부르고 있어요"}${regOf(top.bed) ? "" : " · 미등록 침상"}`;
   $("alarmTime").textContent = waitText(top);
   $("btnAck").dataset.bed = top.bed;
 
@@ -184,8 +202,9 @@ function renderAlarm() {
     li.className = b.call.count > 1 ? "recall" : "";
     li.innerHTML = '<div class="q-main"><b></b><span></span></div><div class="q-sub"></div><button class="btn q-ack">확인</button>';
     li.querySelector("b").textContent = b.bed;
-    li.querySelector(".q-main span").textContent = b.call.count > 1 ? `재호출 ${b.call.count}번째` : b.patient || "";
-    li.querySelector(".q-sub").textContent = `${b.patient && b.call.count > 1 ? b.patient + " · " : ""}${waitText(b)}`;
+    const who = patientOf(b);
+    li.querySelector(".q-main span").textContent = b.call.count > 1 ? `재호출 ${b.call.count}번째` : who || "";
+    li.querySelector(".q-sub").textContent = `${regOf(b.bed) ? "" : "미등록 침상 · "}${who && b.call.count > 1 ? who + " · " : ""}${waitText(b)}`;
     li.querySelector("button").addEventListener("click", () => markAcked(b, data.name));
     ul.appendChild(li);
   }
@@ -230,7 +249,14 @@ function render() {
     head.className = "bed-head";
     head.innerHTML = '<span class="bed-name"></span><span class="bed-patient"></span>';
     head.children[0].textContent = b.bed;
-    head.children[1].textContent = b.patient;
+    const reg = regOf(b.bed);
+    head.children[1].textContent = reg ? reg.patient || "빈 침상" : b.patient;
+    if (!reg) {
+      const tag = document.createElement("span");
+      tag.className = "tag-unreg";
+      tag.textContent = "미등록";
+      head.children[0].appendChild(tag);
+    }
     const state = document.createElement("div");
     state.className = "bed-state";
     const meta = document.createElement("div");
@@ -242,8 +268,11 @@ function render() {
       state.textContent = `✅ ${b.who || "간호사"} 확인`;
       meta.textContent = `${hhmm(b.firstAt || b.call.at)} 호출 · ${b.ackSec}초 만에 확인`;
     } else {
-      state.textContent = alive ? "대기 중" : "연결 끊김";
-      meta.textContent = alive ? `환자 앱: ${PATIENT_STATE[b.patientState] || "켜짐"}` : b.lastSeen ? `마지막 연결 ${hhmm(b.lastSeen)}` : "";
+      const empty = reg && !reg.patient;
+      state.textContent = alive ? "대기 중" : empty ? "빈 침상" : b.lastSeen ? "연결 끊김" : "휴대폰 연결 전";
+      meta.textContent = alive
+        ? `환자 앱: ${PATIENT_STATE[b.patientState] || "켜짐"}`
+        : b.lastSeen ? `마지막 연결 ${hhmm(b.lastSeen)}` : empty ? "" : "환자 휴대폰 설정에서 이 침상을 고르면 연결돼요";
     }
     el.append(head, state, meta);
     if (b.state === "calling") {
@@ -286,8 +315,8 @@ function render() {
     li.innerHTML = '<span class="t"></span><div><span></span><span class="muted"></span></div>';
     li.children[0].textContent = hhmm(l.at);
     const [what, detail] = li.children[1].children;
-    what.textContent = l.kind === "call" ? `🚨 ${l.bed}` : `✅ ${l.bed}`;
-    what.className = l.kind === "call" ? "ev-call" : "ev-ack";
+    what.textContent = `${{ call: "🚨", ack: "✅" }[l.kind] || "📋"} ${l.bed}`;
+    what.className = `ev-${l.kind}`;
     detail.textContent = l.text;
     ul.appendChild(li);
   }
@@ -296,6 +325,123 @@ function render() {
   $("btnSound").textContent = data.soundOn ? "🔔 소리 켬" : "🔕 소리 끔";
   renderAlarm();
 }
+
+// ── 침상 관리: 등록 · 환자 바꾸기(입원) · 퇴원 · 삭제 ──
+let editingKey = null;                     // 환자 이름을 고치는 중인 침상
+function rosterMsg(text, bad) {
+  const el = $("rosterMsg");
+  el.textContent = text;
+  el.classList.toggle("bad", !!bad);
+}
+// 병동 안에서 겹치지 않는 4자리 연결 코드
+function newCode() {
+  const used = new Set(Object.values(roster).map((e) => e?.code));
+  let code;
+  do code = String(Math.floor(1000 + Math.random() * 9000));
+  while (used.has(code));
+  return code;
+}
+async function saveRoster(bed, patient, logText, code = regOf(bed)?.code || newCode()) {
+  const ok = await link.setRoster(bed, patient, code);
+  if (!ok) return rosterMsg("저장하지 못했어요. 인터넷 연결을 확인해 주세요", true);
+  addLog("roster", bed, logText);
+  rosterMsg(`${bed}: ${logText}`);
+  render();
+}
+function renderRoster() {
+  const ul = $("rosterList");
+  ul.innerHTML = "";
+  const list = Object.values(roster).filter((e) => e?.bed).sort((a, b) => a.bed.localeCompare(b.bed, "ko", { numeric: true }));
+  if (!list.length) ul.innerHTML = '<li class="muted">아직 등록한 침상이 없어요</li>';
+  for (const e of list) {
+    const key = cleanKey(e.bed);
+    const li = document.createElement("li");
+    const name = document.createElement("b");
+    name.textContent = e.bed;
+    li.appendChild(name);
+    if (editingKey === key) {
+      const input = document.createElement("input");
+      input.value = e.patient;
+      input.maxLength = 20;
+      input.placeholder = "새 환자 이름";
+      const ok = button("저장", "primary", () => {
+        const p = input.value.trim();
+        editingKey = null;
+        if (p === e.patient) return renderRoster();
+        saveRoster(e.bed, p, p ? `환자 ${p} 등록${e.patient ? ` (이전: ${e.patient})` : ""}` : "빈 침상으로 바꿈");
+      });
+      const cancel = button("취소", "ghost", () => {
+        editingKey = null;
+        renderRoster();
+      });
+      input.addEventListener("keydown", (ev) => ev.key === "Enter" && ok.click());
+      li.append(input, ok, cancel);
+      ul.appendChild(li);
+      setTimeout(() => input.focus(), 0);
+      continue;
+    }
+    const who = document.createElement("span");
+    who.className = e.patient ? "" : "muted";
+    who.textContent = e.patient || "빈 침상";
+    const code = document.createElement("span");
+    code.className = `code${e.code ? "" : " none"}`;
+    code.title = "환자 휴대폰 설정에 넣는 연결 코드";
+    code.textContent = e.code ? `코드 ${e.code}` : "코드 없음";
+    const acts = document.createElement("span");
+    acts.className = "acts";
+    acts.append(
+      button(e.patient ? "환자 바꾸기" : "입원 등록", "", () => {
+        editingKey = key;
+        renderRoster();
+      })
+    );
+    if (e.patient) {
+      acts.append(
+        button("퇴원", "ghost", () => {
+          if (confirm(`${e.bed} ${e.patient} 님을 퇴원 처리할까요?
+침상은 남고 빈 침상이 돼요.`)) saveRoster(e.bed, "", `${e.patient} 퇴원`);
+        })
+      );
+    }
+    acts.append(
+      button(e.code ? "새 코드" : "코드 만들기", "ghost", () => {
+        if (e.code && !confirm(`${e.bed}의 연결 코드를 새로 만들까요?\n지금 연결된 환자 휴대폰은 새 코드를 넣어야 다시 연결돼요.`)) return;
+        saveRoster(e.bed, e.patient, "연결 코드 새로 만듦", newCode());
+      }),
+      button("삭제", "ghost danger", async () => {
+        if (beds.get(e.bed)?.state === "calling") return rosterMsg("호출 중인 침상은 지울 수 없어요. 먼저 확인해 주세요", true);
+        if (!confirm(`${e.bed} 침상을 목록에서 지울까요?`)) return;
+        const ok = await link.removeRoster(e.bed);
+        if (!ok) return rosterMsg("지우지 못했어요. 인터넷 연결을 확인해 주세요", true);
+        addLog("roster", e.bed, "침상 삭제");
+        rosterMsg(`${e.bed}: 침상 삭제`);
+        render();
+      })
+    );
+    li.append(who, code, acts);
+    ul.appendChild(li);
+  }
+}
+function button(text, cls, onClick) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = `btn small ${cls}`.trim();
+  b.textContent = text;
+  b.addEventListener("click", onClick);
+  return b;
+}
+$("rosterForm").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const bed = $("rBed").value.trim();
+  const patient = $("rPatient").value.trim();
+  if (!bed) return rosterMsg("침상 이름을 넣어 주세요", true);
+  const old = regOf(bed);
+  if (old && !confirm(`${bed}은(는) 이미 등록돼 있어요 (${old.patient || "빈 침상"}).
+${patient || "빈 침상"}(으)로 바꿀까요?`)) return;
+  $("rBed").value = "";
+  $("rPatient").value = "";
+  saveRoster(bed, patient, patient ? `환자 ${patient} 등록` : "빈 침상 등록");
+});
 
 // ── 시작 ─────────────────────────────────────
 let wakeLock = null;
@@ -313,7 +459,9 @@ async function begin() {
     watching = false;
   }
   if (!watching) {
+    roster = {};
     link.watchAll();
+    link.watchRoster(onRoster);
     watching = true;
   }
   try {

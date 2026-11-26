@@ -120,3 +120,22 @@ main { max-width: 1100px; margin: 0 auto; padding: max(14px, env(safe-area-inset
 .alarm-list .q-sub { grid-column: 1; font-size: 13px; opacity: 0.85; font-variant-numeric: tabular-nums; }
 .alarm-list .q-ack { grid-column: 2; grid-row: 1 / span 2; border: 0; border-radius: 12px; padding: 10px 16px; font-weight: 800; background: #fff; color: #c33a1f; }
 .alarm-list li.recall .q-ack { background: #c8102e; color: #fff; }
+
+/* 침상 관리 */
+.roster p { margin: 0 0 10px; }
+.roster-add { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
+.roster-add input, .roster-list input { min-width: 0; font: inherit; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.roster-msg { min-height: 1.2em; margin: 8px 0 4px !important; }
+.roster-msg.bad { color: var(--call); }
+.roster-list { list-style: none; margin: 0; padding: 0; }
+.roster-list li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--line); }
+.roster-list li > b { min-width: 7em; }
+.roster-list li > span:not(.acts):not(.code) { flex: 1; min-width: 6em; }
+.roster-list li > input { flex: 1; }
+.roster-list .acts { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.btn.danger { color: var(--call); }
+.tag-unreg { margin-left: 6px; font-size: 11px; font-weight: 800; padding: 2px 6px; border-radius: 6px; background: var(--call); color: #fff; vertical-align: middle; }
+.log .ev-roster { font-weight: 700; }
+@media (max-width: 520px) { .roster-add { grid-template-columns: 1fr 1fr; } .roster-add button { grid-column: span 2; } }
+.roster-list .code { font-variant-numeric: tabular-nums; font-weight: 800; letter-spacing: 0.04em; padding: 3px 8px; border-radius: 8px; background: rgba(31, 143, 176, 0.12); color: var(--teal); }
+.roster-list .code.none { font-weight: 600; letter-spacing: 0; color: var(--muted); background: transparent; }
