@@ -208,10 +208,18 @@ class Session {
     const r = camera.detect();
     if (r !== undefined) {
       const now = clock();
+      // 1초에 몇 장 분석하는지 재서 끊김 허용치를 맞춘다
+      if (this.lastFrame) {
+        const dt = now - this.lastFrame;
+        this.frameDt = this.frameDt ? this.frameDt * 0.9 + dt * 0.1 : dt;
+        this.controller.setFrameInterval(this.frameDt);
+      }
+      this.lastFrame = now;
       const eye = this.extractor.update(r.face);
       for (const ev of this.controller.update(eye, now)) this.onEvent(ev, now);
       // 호출 화면은 의료진이 확인하기 전까지 두되, 환자가 다시 질문을 받으면 추적 화면으로 돌아온다
       if (this.controller.state === ASKING) $("callCard").hidden = true;
+      this.landmarks = r.landmarks;
       this.render(eye, r.landmarks, now);
     }
     requestAnimationFrame(() => this.tick());
@@ -282,10 +290,24 @@ class Session {
           `${ok("iris_v")} 홍채 세로 ${eye.iris_v.toFixed(3)} (기준 ${k.iris_v_center.toFixed(3)}±${t.iris_v.toFixed(3)})\n` +
           `${ok("yaw")} 고개 좌우 ${eye.yaw.toFixed(1)}° (기준 ${k.yaw_center.toFixed(1)}±${t.yaw.toFixed(0)}) · ` +
           `${ok("pitch")} 상하 ${eye.pitch.toFixed(1)}°\n` +
-          `${store.patient.calib ? "눈 맞추기 적용됨" : "눈 맞추기 안 함 (공통 기준)"} · ${camera.label || ""}`
-        : `얼굴 없음 · ${camera.label || ""}`;
+          `${store.patient.calib ? "눈 맞추기 적용됨" : "눈 맞추기 안 함 (공통 기준)"}\n` +
+          this.cameraLine()
+        : `얼굴 없음\n${this.cameraLine()}`;
     }
     this.drawEyes(eye, landmarks);
+  }
+
+  // 카메라 · 처리 속도 · 눈 크기 (인식이 약할 때 원인을 찾는 용도)
+  cameraLine() {
+    const v = $("video");
+    const fps = this.frameDt ? (1 / this.frameDt).toFixed(0) : "-";
+    let eyePx = "-";
+    const lm = this.landmarks;
+    if (lm) eyePx = Math.round(Math.hypot((lm[33].x - lm[133].x) * v.videoWidth, (lm[33].y - lm[133].y) * v.videoHeight));
+    const warn = [];
+    if (this.frameDt && 1 / this.frameDt < 10) warn.push("처리 느림");
+    if (eyePx !== "-" && eyePx < 28) warn.push("눈이 작게 찍힘: 더 가까이");
+    return `영상 ${v.videoWidth}×${v.videoHeight} · ${fps}장/초 · 눈 너비 ${eyePx}px${warn.length ? " · ⚠ " + warn.join(", ") : ""}`;
   }
 
   drawEyes(eye, lm) {

@@ -56,6 +56,14 @@ export class CallController {
     this.faceLostSince = null;
   }
 
+  // 휴대폰처럼 1초에 분석하는 장수가 적으면 프레임 사이 간격이 끊김 허용치(0.5초)에 가까워진다.
+  // 그러면 바라보고 있어도 타이머가 자꾸 처음부터 다시 세지므로, 프레임 간격의 2.5배까지 허용치를 늘린다 (최대 1초).
+  setFrameInterval(sec) {
+    const grace = Math.min(1.0, Math.max(GRACE_SEC, sec * 2.5));
+    this.gaze.grace = grace;
+    this.closed.grace = grace;
+  }
+
   get responseTimeout() {
     const d = this.dwell;
     return Math.max(d.confirm_gaze_sec, d.cancel_close_sec) + RESPONSE_EXTRA_SEC;
