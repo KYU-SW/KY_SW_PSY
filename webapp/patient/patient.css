@@ -213,3 +213,6 @@ html:has(.view.dark.active), body:has(.view.dark.active) { background: #071a22; 
 .pair-card p { margin: 0 0 12px; }
 .pair-card .small-note { margin: 10px 0 0; font-size: 13px; }
 #homeCode { flex: 1; min-width: 0; font-size: 28px; letter-spacing: 0.4em; text-align: center; font-variant-numeric: tabular-nums; }
+.pair-start { display: flex; flex-direction: column; gap: 14px; }
+.pair-start p { margin: 0; }
+#startCode { width: 100%; box-sizing: border-box; font-size: 40px; letter-spacing: 0.5em; text-indent: 0.5em; text-align: center; padding: 14px; font-variant-numeric: tabular-nums; }

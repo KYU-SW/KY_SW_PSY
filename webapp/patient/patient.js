@@ -2,8 +2,8 @@
 import { Camera } from "../core/camera.js";
 import { CallController, COOLDOWN_APP, buildPhrases, secondsText, IDLE, ASKING, WAITING, COOLDOWN } from "../core/controller.js";
 import { FeatureExtractor, buildCalibration, rawFeatures } from "../core/features.js";
-import { cleanKey, createLink, deviceId, linkSettings, saveLinkSettings } from "../core/link.js?v=20261126j";
-import { store } from "../core/store.js?v=20261126j";
+import { cleanKey, createLink, deviceId, linkSettings, saveLinkSettings } from "../core/link.js?v=20261126k";
+import { store } from "../core/store.js?v=20261126k";
 import { Voice } from "../core/voice.js";
 
 const $ = (id) => document.getElementById(id);
@@ -18,7 +18,7 @@ const EVENT_TEXT = { CALL: "호출", CANCEL: "취소", TIMEOUT: "응답 없음",
 // ── 화면 전환 ─────────────────────────────────
 function show(id) {
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === id));
-  document.querySelector('meta[name="theme-color"]').content = id === "home" || id === "settings" ? "#f3f8fa" : "#0f3b4c";
+  document.querySelector('meta[name="theme-color"]').content = id === "home" || id === "settings" || id === "pair" ? "#f3f8fa" : "#0f3b4c";
 }
 
 let toastTimer = null;
@@ -80,8 +80,9 @@ function renderHome() {
   const problem = bedProblem();
   $("chipBed").hidden = !problem;
   $("chipBed").textContent = problem;
-  // 연결이 안 됐거나 코드가 바뀌었으면 홈 맨 위에 코드 입력칸을 띄운다
-  const needCode = !store.data.bed || (roster && !paired());
+  // 연결한 뒤 간호사가 코드를 새로 만들었거나 침상을 지웠으면 홈 맨 위에 코드 입력칸을 띄운다
+  // (처음 연결은 따로 '침상 연결' 화면에서 한다)
+  const needCode = !!store.data.pairCode && !!roster && !paired();
   $("homePair").hidden = !needCode;
   if (needCode) $("chipBed").hidden = true;            // 위의 연결 칸이 같은 내용을 보여 준다
   if (needCode) {
@@ -91,7 +92,7 @@ function renderHome() {
       : "간호사에게 새 연결 코드를 받아 넣어 주세요.";
     $("homeWard").textContent = `병동 코드: ${link.ward} (다르면 설정에서 바꿔요)`;
   }
-  $("btnStart").hidden = !store.data.bed;
+
   const p = store.patient;
   $("chipCalib").textContent = p.calib ? "눈 맞추기 완료" : "눈 맞추기 안 함 (공통 기준)";
   $("chipCalib").classList.toggle("on", !!p.calib);
@@ -402,9 +403,9 @@ class Session {
 
 async function startTracking() {
   // 침상을 고르지 않았으면 먼저 고르게 한다 (등록 문제는 경고만 하고 시작은 막지 않음: 응급일 수 있음)
-  if (!store.data.bed) {
+  if (!store.data.pairCode) {
     toast("간호사 앱의 연결 코드를 먼저 넣어 주세요");
-    $("homeCode").focus();
+    show("pair");
     return;
   }
   voice.unlock();
@@ -632,12 +633,25 @@ async function pairWithCode(input = $("setCode")) {
   input.blur();
   link.sendStatus({ bed: e.bed, patient: currentPatient(), state: "HOME" });
   if ($("settings").classList.contains("active")) renderSettings();
-  else renderHome();
+  else {
+    show("home");
+    renderHome();
+  }
   toast(`${e.bed}${e.patient ? ` · ${e.patient} 님` : ""}으로 연결했어요`);
 }
 $("btnPair").addEventListener("click", () => pairWithCode($("setCode")));
 $("setCode").addEventListener("keydown", (ev) => ev.key === "Enter" && pairWithCode($("setCode")));
 $("btnHomePair").addEventListener("click", () => pairWithCode($("homeCode")));
+$("btnStartPair").addEventListener("click", () => pairWithCode($("startCode")));
+$("startCode").addEventListener("keydown", (ev) => ev.key === "Enter" && pairWithCode($("startCode")));
+$("startWard").value = linkSettings().ward;
+$("startWard").addEventListener("change", (e) => {
+  const ward = e.target.value.trim() || "ward1";
+  if (ward === linkSettings().ward) return;
+  saveLinkSettings({ ward });
+  toast("병동 코드를 바꿨어요. 다시 연결할게요");
+  setTimeout(() => location.reload(), 900);
+});
 $("homeCode").addEventListener("keydown", (ev) => ev.key === "Enter" && pairWithCode($("homeCode")));
 document.querySelectorAll(".slider[data-key] input").forEach((input) => {
   input.addEventListener("input", () => {
@@ -700,6 +714,8 @@ $("btnCalibReset").addEventListener("click", () => {
 
 renderHome();
 showLinkState();
+// 연결 코드를 아직 안 넣었으면 (예전에 침상 이름만 쳐 넣은 휴대폰 포함) 코드 화면부터
+if (!store.data.pairCode) show("pair");
 
 // 가로로 돌렸을 때 앞면 카메라가 어느 쪽에 있는지 (표적을 카메라 쪽에 두려고)
 // 반시계로 돌리면(90°) 카메라가 왼쪽, 시계로 돌리면(270°) 오른쪽
