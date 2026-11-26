@@ -9,7 +9,7 @@
 <link rel="icon" href="../icons/icon-192.png">
 <link rel="apple-touch-icon" href="../icons/icon-192.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.min.css">
-<link rel="stylesheet" href="patient.css?v=20261126h">
+<link rel="stylesheet" href="patient.css?v=20261126j">
 </head>
 <body>
 
@@ -22,6 +22,17 @@
       <div class="tagline">눈으로 부르는 간호 호출</div>
     </div>
   </header>
+  <!-- 침상 연결 안 됨 / 코드가 바뀜: 시작하자마자 코드부터 넣게 한다 -->
+  <div class="card pair-card" id="homePair" hidden>
+    <h2 id="homePairTitle">침상 연결</h2>
+    <p class="muted" id="homePairSub">간호사 앱 [침상 관리]에 있는 4자리 연결 코드를 넣어 주세요.</p>
+    <div class="row add">
+      <input id="homeCode" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="0000" autocomplete="off" aria-label="연결 코드">
+      <button class="btn primary" id="btnHomePair">연결</button>
+    </div>
+    <p class="muted small-note" id="homeWard"></p>
+  </div>
+
   <div class="card hello">
     <div class="muted">침상</div>
     <div class="big" id="homeBed">101호 1번 침상</div>
@@ -54,7 +65,7 @@
     <div class="row"><b>최근 기록</b><span class="muted" id="histCount"></span></div>
     <ul id="histList"></ul>
   </div>
-  <p class="foot muted">휴대폰은 얼굴 정면이 아니라 옆쪽 위(정면에서 30° 정도, 40~60cm)에 세로로 고정해 주세요. 평소 천장을 볼 때는 시야 밖에 있고, 고개를 돌리지 않고 눈만 돌리면 보이는 곳이에요.</p>
+  <p class="foot muted">휴대폰은 얼굴 정면이 아니라 옆쪽 위(정면에서 30° 정도, 40~60cm)에 세로나 가로로 고정해 주세요. 평소 천장을 볼 때는 시야 밖에 있고, 고개를 돌리지 않고 눈만 돌리면 보이는 곳이에요.</p>
 </section>
 
 <!-- 호출 대기 (시선 추적) -->
@@ -212,6 +223,6 @@
 </section>
 
 <div class="toast" id="toast" hidden></div>
-<script type="module" src="patient.js?v=20261126h"></script>
+<script type="module" src="patient.js?v=20261126j"></script>
 </body>
 </html>

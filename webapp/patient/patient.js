@@ -2,8 +2,8 @@
 import { Camera } from "../core/camera.js";
 import { CallController, COOLDOWN_APP, buildPhrases, secondsText, IDLE, ASKING, WAITING, COOLDOWN } from "../core/controller.js";
 import { FeatureExtractor, buildCalibration, rawFeatures } from "../core/features.js";
-import { cleanKey, createLink, deviceId, linkSettings, saveLinkSettings } from "../core/link.js?v=20261126h";
-import { store } from "../core/store.js?v=20261126h";
+import { cleanKey, createLink, deviceId, linkSettings, saveLinkSettings } from "../core/link.js?v=20261126j";
+import { store } from "../core/store.js?v=20261126j";
 import { Voice } from "../core/voice.js";
 
 const $ = (id) => document.getElementById(id);
@@ -51,7 +51,7 @@ function usedByOther(bed) {
 }
 // 침상 등록 문제 (없으면 "")
 function bedProblem() {
-  if (!store.data.bed) return "침상 연결 안 됨 · 설정에서 연결 코드를 넣어 주세요";
+  if (!store.data.bed) return "침상 연결 안 됨 · 연결 코드를 넣어 주세요";
   if (roster && !myReg()) return "간호사 앱에서 지워진 침상";
   if (roster && !paired()) return "연결 코드가 바뀌었어요 · 새 코드를 넣어 주세요";
   if (myReg() && !myReg().patient) return "빈 침상 (환자 없음)";
@@ -76,10 +76,22 @@ function refresh() {
 
 function renderHome() {
   $("homeBed").textContent = store.data.bed || "침상 연결 안 됨";
-  $("homePatient").textContent = currentPatient() || "없음";
+  $("homePatient").textContent = store.data.bed ? currentPatient() || "없음" : "-";
   const problem = bedProblem();
   $("chipBed").hidden = !problem;
   $("chipBed").textContent = problem;
+  // 연결이 안 됐거나 코드가 바뀌었으면 홈 맨 위에 코드 입력칸을 띄운다
+  const needCode = !store.data.bed || (roster && !paired());
+  $("homePair").hidden = !needCode;
+  if (needCode) $("chipBed").hidden = true;            // 위의 연결 칸이 같은 내용을 보여 준다
+  if (needCode) {
+    $("homePairTitle").textContent = !store.data.bed ? "침상 연결" : !myReg() ? "침상이 지워졌어요" : "연결 코드가 바뀌었어요";
+    $("homePairSub").textContent = !store.data.bed
+      ? "간호사 앱 [침상 관리]에 있는 4자리 연결 코드를 넣어 주세요."
+      : "간호사에게 새 연결 코드를 받아 넣어 주세요.";
+    $("homeWard").textContent = `병동 코드: ${link.ward} (다르면 설정에서 바꿔요)`;
+  }
+  $("btnStart").hidden = !store.data.bed;
   const p = store.patient;
   $("chipCalib").textContent = p.calib ? "눈 맞추기 완료" : "눈 맞추기 안 함 (공통 기준)";
   $("chipCalib").classList.toggle("on", !!p.calib);
@@ -391,9 +403,8 @@ class Session {
 async function startTracking() {
   // 침상을 고르지 않았으면 먼저 고르게 한다 (등록 문제는 경고만 하고 시작은 막지 않음: 응급일 수 있음)
   if (!store.data.bed) {
-    toast("설정에서 간호사 앱의 연결 코드를 먼저 넣어 주세요");
-    renderSettings();
-    show("settings");
+    toast("간호사 앱의 연결 코드를 먼저 넣어 주세요");
+    $("homeCode").focus();
     return;
   }
   voice.unlock();
@@ -604,8 +615,8 @@ function fillBedSelect() {
   info.textContent = problem ? `⚠ ${problem}` : roster === null && link.kind === "firebase" ? "등록 목록을 불러오는 중…" : "";
   info.style.color = problem ? "var(--call)" : "";
 }
-async function pairWithCode() {
-  const code = $("setCode").value.trim();
+async function pairWithCode(input = $("setCode")) {
+  const code = input.value.trim();
   if (!/^\d{4}$/.test(code)) return toast("4자리 숫자를 넣어 주세요");
   const fresh = await link.readRoster();          // 방금 만든 코드도 바로 찾을 수 있게 새로 읽는다
   if (fresh) roster = fresh;
@@ -617,14 +628,17 @@ async function pairWithCode() {
   store.data.pairCode = code;
   if (e.patient) store.addPatient(e.patient);
   store.save();
-  $("setCode").value = "";
-  $("setCode").blur();
+  input.value = "";
+  input.blur();
   link.sendStatus({ bed: e.bed, patient: currentPatient(), state: "HOME" });
-  renderSettings();
+  if ($("settings").classList.contains("active")) renderSettings();
+  else renderHome();
   toast(`${e.bed}${e.patient ? ` · ${e.patient} 님` : ""}으로 연결했어요`);
 }
-$("btnPair").addEventListener("click", pairWithCode);
-$("setCode").addEventListener("keydown", (ev) => ev.key === "Enter" && pairWithCode());
+$("btnPair").addEventListener("click", () => pairWithCode($("setCode")));
+$("setCode").addEventListener("keydown", (ev) => ev.key === "Enter" && pairWithCode($("setCode")));
+$("btnHomePair").addEventListener("click", () => pairWithCode($("homeCode")));
+$("homeCode").addEventListener("keydown", (ev) => ev.key === "Enter" && pairWithCode($("homeCode")));
 document.querySelectorAll(".slider[data-key] input").forEach((input) => {
   input.addEventListener("input", () => {
     const s = input.closest(".slider");

@@ -1,5 +1,5 @@
 // OpticCall 간호사실 앱: 침상 상태 · 호출 알람 · 확인 보내기 · 오늘 기록
-import { cleanKey, createLink, linkSettings, saveLinkSettings } from "../core/link.js?v=20261126h";
+import { cleanKey, createLink, linkSettings, saveLinkSettings } from "../core/link.js?v=20261126j";
 
 const $ = (id) => document.getElementById(id);
 const KEY = "opticcall.nurse.v1";

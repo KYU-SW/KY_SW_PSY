@@ -208,3 +208,8 @@ html:has(.view.dark.active), body:has(.view.dark.active) { background: #071a22; 
 .pair-now { padding: 12px 14px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); line-height: 1.5; }
 .pair-now b { font-size: 18px; }
 #setCode { font-size: 22px; letter-spacing: 0.3em; text-align: center; font-variant-numeric: tabular-nums; }
+.pair-card { border: 2px solid var(--teal, #1f8fb0); }
+.pair-card h2 { margin: 0 0 4px; }
+.pair-card p { margin: 0 0 12px; }
+.pair-card .small-note { margin: 10px 0 0; font-size: 13px; }
+#homeCode { flex: 1; min-width: 0; font-size: 28px; letter-spacing: 0.4em; text-align: center; font-variant-numeric: tabular-nums; }
