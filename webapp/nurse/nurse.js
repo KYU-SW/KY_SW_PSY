@@ -1,5 +1,5 @@
 // OpticCall 간호사실 앱: 침상 상태 · 호출 알람 · 확인 보내기 · 오늘 기록
-import { cleanKey, createLink, linkSettings, saveLinkSettings } from "../core/link.js?v=20261126k";
+import { cleanKey, createLink, linkSettings, saveLinkSettings } from "../core/link.js?v=20261126l";
 
 const $ = (id) => document.getElementById(id);
 const KEY = "opticcall.nurse.v1";
@@ -235,7 +235,9 @@ function render() {
   const now = Date.now();
   // 호출 중인 침상은 알람 화면과 같은 순서(재호출 → 오래 기다린 순), 나머지는 이름순
   const calling = sortPending([...beds.values()].filter((b) => b.state === "calling"));
-  const list = [...calling, ...[...beds.values()].filter((b) => b.state !== "calling").sort((a, b) => a.bed.localeCompare(b.bed))];
+  // 등록 안 된(지운) 침상은 카드로 보이지 않는다. 다만 호출했으면 응급일 수 있으니 '미등록'으로 보여 준다
+  const others = [...beds.values()].filter((b) => b.state !== "calling" && (regOf(b.bed) || b.state === "acked"));
+  const list = [...calling, ...others.sort((a, b) => a.bed.localeCompare(b.bed, "ko", { numeric: true }))];
   const wrap = $("beds");
   wrap.querySelectorAll(".bed").forEach((el) => el.remove());
   $("bedsEmpty").hidden = list.length > 0;

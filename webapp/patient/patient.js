@@ -2,8 +2,8 @@
 import { Camera } from "../core/camera.js";
 import { CallController, COOLDOWN_APP, buildPhrases, secondsText, IDLE, ASKING, WAITING, COOLDOWN } from "../core/controller.js";
 import { FeatureExtractor, buildCalibration, rawFeatures } from "../core/features.js";
-import { cleanKey, createLink, deviceId, linkSettings, saveLinkSettings } from "../core/link.js?v=20261126k";
-import { store } from "../core/store.js?v=20261126k";
+import { cleanKey, createLink, deviceId, linkSettings, saveLinkSettings } from "../core/link.js?v=20261126l";
+import { store } from "../core/store.js?v=20261126l";
 import { Voice } from "../core/voice.js";
 
 const $ = (id) => document.getElementById(id);
@@ -60,6 +60,16 @@ function bedProblem() {
 }
 function onRoster(r) {
   roster = r || {};
+  // 간호사 앱에서 이 침상을 지웠으면 연결을 끊고 코드 화면으로 (Firebase 목록 기준일 때만)
+  if (store.data.pairCode && link.kind === "firebase" && !myReg()) {
+    store.data.bed = "";
+    store.data.pairCode = "";
+    store.save();
+    if ($("track").classList.contains("active")) stopTracking();
+    show("pair");
+    toast("간호사 앱에서 이 침상을 지워 연결이 끊겼어요. 새 연결 코드를 넣어 주세요");
+    return;
+  }
   const reg = paired() ? myReg() : null;
   // 간호사가 이 침상의 환자를 바꾸면 따라 바꾼다 (응시 시간·눈 맞추기는 환자마다 따로)
   if (reg && reg.patient && reg.patient !== store.data.current) {
@@ -121,7 +131,9 @@ voice.rate = store.data.voiceRate;
 const link = createLink();
 link.onAck((m) => session && session.onAck(m));
 link.watchAcks();
-link.watchRoster(onRoster, { live: false });     // 같은 브라우저 안(인터넷 없이) 시연용
+// 인터넷 없이 같은 브라우저 안에서 시연할 때만 탭끼리 등록 목록을 받는다.
+// Firebase를 쓸 때는 10초마다 읽는 전체 목록만 믿는다 (탭끼리 오는 일부 변경만 보고 '침상이 지워졌다'고 오해하지 않게)
+if (link.kind !== "firebase") link.watchRoster(onRoster, { live: false });
 // 등록 목록(환자 바뀜)과 같은 침상을 쓰는 다른 휴대폰: 설정을 열 때와 10초마다 한 번씩 읽는다
 // (실시간 연결은 '간호사 확인' 하나만 열어 둔다)
 async function checkBeds() {
@@ -146,7 +158,8 @@ function showLinkState(s = link.state) {
 }
 link.onState(showLinkState);
 // 시작하자마자 연결을 확인한다 (침상 상태를 한 번 보낸다)
-if (store.data.bed) link.sendStatus({ bed: store.data.bed, patient: currentPatient(), state: "HOME" });
+// 연결 코드로 연결된 휴대폰만 침상 상태를 보낸다 (예전에 침상 이름만 쳐 넣은 휴대폰이 침상처럼 보이지 않게)
+if (store.data.pairCode && store.data.bed) link.sendStatus({ bed: store.data.bed, patient: currentPatient(), state: "HOME" });
 
 let wakeLock = null;
 async function keepAwake(on) {
@@ -255,7 +268,7 @@ class Session {
     // 의료진 앱에 '이 침상 앱이 켜져 있다'를 알린다 (3초마다)
     if (Date.now() - (this.lastStatus || 0) > 3000) {
       this.lastStatus = Date.now();
-      if (store.data.bed) link.sendStatus({ bed: store.data.bed, patient: currentPatient(), state: this.controller.state });
+      if (store.data.pairCode && store.data.bed) link.sendStatus({ bed: store.data.bed, patient: currentPatient(), state: this.controller.state });
     }
     const r = camera.detect();
     if (r !== undefined) {
